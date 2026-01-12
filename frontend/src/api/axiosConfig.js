@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const getBaseUrl = () => {
-  let url = process.env.REACT_APP_API_URL || 'https://usafilink-backend.onrender.com/api';
+  let url = import.meta.env.VITE_API_URL || 'https://usafilink-backend.onrender.com/api';
   return url.endsWith('/') ? url : `${url}/`;
 };
 
