@@ -14,6 +14,7 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    'Bypass-Tunnel-Reminder': 'true', // Bypasses the Localtunnel landing page
   }
 });
 
