@@ -29,26 +29,28 @@ class MpesaService:
         if self.env == 'mock':
             return "mock_access_token_12345"
 
-        url = f"{self.base_url}/oauth/v1/generate?grant_type=client_credentials"
+        url = f"{self.base_url}/oauth/v1/generate"
+        params = {"grant_type": "client_credentials"}
         
-        # Log for debugging
-        logger.info(f"M-PESA Auth Attempt: ENV={self.env}, URL={url}, KeyLen={len(self.consumer_key)}, SecretLen={len(self.consumer_secret)}")
+        # Diagnostic: Log parts of keys to verify they are loaded correctly (Safe)
+        key_start = self.consumer_key[:3] if self.consumer_key else "NONE"
+        secret_start = self.consumer_secret[:3] if self.consumer_secret else "NONE"
+        
+        logger.info(f"M-PESA Auth Attempt: ENV={self.env}, URL={url}, Key={key_start}..., Secret={secret_start}...")
 
         try:
-            # Manually construct Basic Auth header
-            auth_str = f"{self.consumer_key}:{self.consumer_secret}"
-            encoded_auth = base64.b64encode(auth_str.encode()).decode()
-            
-            auth_header = {
-                "Authorization": f"Basic {encoded_auth}",
-                "Content-Type": "application/json"
-            }
-            
-            response = self.session.get(url, headers=auth_header, timeout=30)
+            # Use fresh requests call without session headers to avoid conflict
+            response = requests.get(
+                url, 
+                params=params, 
+                auth=HTTPBasicAuth(self.consumer_key, self.consumer_secret),
+                timeout=30
+            )
             
             if response.status_code != 200:
                 logger.error(f"M-PESA Auth Error: {response.status_code} - Body: {response.text}")
-                raise Exception(f"Safaricom Auth Failed (HTTP {response.status_code}): {response.text}")
+                # If body is empty, it might be the URL or params.
+                raise Exception(f"Safaricom Auth Failed (HTTP {response.status_code}). Please verify your Consumer Key and Secret in Render.")
                 
             return response.json()['access_token']
         except requests.exceptions.RequestException as e:
