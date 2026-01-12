@@ -9,19 +9,19 @@ logger = logging.getLogger(__name__)
 
 class MpesaService:
     def __init__(self):
-        self.consumer_key = settings.MPESA_CONSUMER_KEY
-        self.consumer_secret = settings.MPESA_CONSUMER_SECRET
-        self.shortcode = settings.MPESA_SHORTCODE
-        self.passkey = settings.MPESA_PASSKEY
-        self.env = settings.MPESA_ENV
+        self.consumer_key = str(settings.MPESA_CONSUMER_KEY).strip()
+        self.consumer_secret = str(settings.MPESA_CONSUMER_SECRET).strip()
+        self.shortcode = str(settings.MPESA_SHORTCODE).strip()
+        self.passkey = str(settings.MPESA_PASSKEY).strip()
+        self.env = str(settings.MPESA_ENV).strip().lower()
         self.base_url = 'https://sandbox.safaricom.co.ke' if self.env == 'sandbox' else 'https://api.safaricom.co.ke'
         
         self.session = requests.Session()
         self.session.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 
-        # Auto-detect mock mode if credentials are empty
-        if not self.consumer_key or not self.consumer_secret:
-            logger.warning("M-PESA credentials missing. Switching to MOCK mode.")
+        # Auto-detect mock mode if credentials are empty or default placeholders
+        if not self.consumer_key or not self.consumer_secret or 'your-' in self.consumer_key:
+            logger.warning(f"M-PESA credentials missing or placeholder. Key: {self.consumer_key[:5]}... Switching to MOCK mode.")
             self.env = 'mock'
     
     def get_access_token(self):
@@ -30,20 +30,29 @@ class MpesaService:
             return "mock_access_token_12345"
 
         url = f"{self.base_url}/oauth/v1/generate?grant_type=client_credentials"
+        
+        # Log for debugging
+        logger.info(f"M-PESA Auth Attempt: ENV={self.env}, URL={url}, KeyLen={len(self.consumer_key)}, SecretLen={len(self.consumer_secret)}")
+
         try:
-            response = self.session.get(
-                url, 
-                auth=HTTPBasicAuth(self.consumer_key, self.consumer_secret),
-                timeout=30
-            )
+            # Manually construct Basic Auth header
+            auth_str = f"{self.consumer_key}:{self.consumer_secret}"
+            encoded_auth = base64.b64encode(auth_str.encode()).decode()
+            
+            auth_header = {
+                "Authorization": f"Basic {encoded_auth}",
+                "Content-Type": "application/json"
+            }
+            
+            response = self.session.get(url, headers=auth_header, timeout=30)
+            
             if response.status_code != 200:
-                logger.error(f"M-PESA Auth Error: {response.status_code} - {response.text}")
-                # Don't return mock token if we have keys, let it fail so user knows keys are wrong
-                raise Exception(f"Failed to get access token: {response.text}")
+                logger.error(f"M-PESA Auth Error: {response.status_code} - Body: {response.text}")
+                raise Exception(f"Safaricom Auth Failed (HTTP {response.status_code}): {response.text}")
                 
             return response.json()['access_token']
         except requests.exceptions.RequestException as e:
-            logger.error(f"Connection error to M-PESA: {str(e)}")
+            logger.error(f"Network error during M-PESA Auth: {str(e)}")
             raise
     
     def stk_push(self, phone_number, amount, account_reference, transaction_desc):
