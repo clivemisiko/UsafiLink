@@ -9,19 +9,23 @@ logger = logging.getLogger(__name__)
 
 class MpesaService:
     def __init__(self):
-        self.consumer_key = str(settings.MPESA_CONSUMER_KEY).strip()
-        self.consumer_secret = str(settings.MPESA_CONSUMER_SECRET).strip()
-        self.shortcode = str(settings.MPESA_SHORTCODE).strip()
-        self.passkey = str(settings.MPESA_PASSKEY).strip()
-        self.env = str(settings.MPESA_ENV).strip().lower()
+        # Using join(split()) to remove ALL whitespace, including hidden newlines/tabs
+        raw_key = str(settings.MPESA_CONSUMER_KEY or "")
+        raw_secret = str(settings.MPESA_CONSUMER_SECRET or "")
+        
+        self.consumer_key = "".join(raw_key.split())
+        self.consumer_secret = "".join(raw_secret.split())
+        self.shortcode = "".join(str(settings.MPESA_SHORTCODE or "174379").split())
+        self.passkey = "".join(str(settings.MPESA_PASSKEY or "").split())
+        self.env = str(settings.MPESA_ENV or "sandbox").strip().lower()
+        
         self.base_url = 'https://sandbox.safaricom.co.ke' if self.env == 'sandbox' else 'https://api.safaricom.co.ke'
         
         self.session = requests.Session()
-        self.session.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 
-        # Auto-detect mock mode if credentials are empty or default placeholders
+        # Auto-detect mock mode if credentials are empty or placeholders
         if not self.consumer_key or not self.consumer_secret or 'your-' in self.consumer_key:
-            logger.warning(f"M-PESA credentials missing or placeholder. Key: {self.consumer_key[:5]}... Switching to MOCK mode.")
+            logger.warning(f"M-PESA credentials missing or placeholder. Switching to MOCK mode.")
             self.env = 'mock'
     
     def get_access_token(self):
@@ -29,27 +33,24 @@ class MpesaService:
         if self.env == 'mock':
             return "mock_access_token_12345"
 
-        url = f"{self.base_url}/oauth/v1/generate"
-        params = {"grant_type": "client_credentials"}
+        # Match exact URL format from successful local test
+        url = f"{self.base_url}/oauth/v1/generate?grant_type=client_credentials"
         
-        # Diagnostic: Log parts of keys to verify they are loaded correctly (Safe)
-        key_start = self.consumer_key[:3] if self.consumer_key else "NONE"
-        secret_start = self.consumer_secret[:3] if self.consumer_secret else "NONE"
+        # Diagnostic: Log parts of keys to verify they are loaded correctly
+        key_diag = f"{self.consumer_key[:3]}...{self.consumer_key[-3:]}" if len(self.consumer_key) > 6 else "INVALID"
         
-        logger.info(f"M-PESA Auth Attempt: ENV={self.env}, URL={url}, Key={key_start}..., Secret={secret_start}...")
+        logger.info(f"M-PESA Auth Attempt: ENV={self.env}, URL={url}, KeyDiag={key_diag}")
 
         try:
-            # Use fresh requests call without session headers to avoid conflict
+            # Use simple requests call to match local test exactly
             response = requests.get(
                 url, 
-                params=params, 
-                auth=HTTPBasicAuth(self.consumer_key, self.consumer_secret),
+                auth=(self.consumer_key, self.consumer_secret),
                 timeout=30
             )
             
             if response.status_code != 200:
                 logger.error(f"M-PESA Auth Error: {response.status_code} - Body: {response.text}")
-                # If body is empty, it might be the URL or params.
                 raise Exception(f"Safaricom Auth Failed (HTTP {response.status_code}). Please verify your Consumer Key and Secret in Render.")
                 
             return response.json()['access_token']
