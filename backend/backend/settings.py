@@ -16,11 +16,13 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-usafilink-secret-key-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,chatty-gifts-lie.loca.lt').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,chatty-gifts-lie.loca.lt,usafilink-backend.onrender.com').split(',')
 
 CSRF_TRUSTED_ORIGINS = [
     "https://*.loca.lt",
     "http://localhost:5173",
+    "https://usafilink-frontend.onrender.com",
+    "https://usafilink-backend.onrender.com",
 ]
 
 # Application definition
