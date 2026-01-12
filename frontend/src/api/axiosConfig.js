@@ -1,7 +1,12 @@
 // frontend/src/api/axiosConfig.js
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://usafilink-backend.onrender.com/api';
+const getBaseUrl = () => {
+  let url = process.env.REACT_APP_API_URL || 'https://usafilink-backend.onrender.com/api';
+  return url.endsWith('/') ? url : `${url}/`;
+};
+
+const API_BASE_URL = getBaseUrl();
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -15,6 +20,11 @@ const axiosInstance = axios.create({
 // Add request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
+    // Ensure URL doesn't start with / if we want it appended to baseURL
+    if (config.url && config.url.startsWith('/')) {
+      config.url = config.url.substring(1);
+    }
+
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -31,10 +41,10 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
         const refreshToken = localStorage.getItem('refresh_token');
         if (!refreshToken) {
@@ -42,20 +52,20 @@ axiosInstance.interceptors.response.use(
           window.location.href = '/login';
           return Promise.reject(error);
         }
-        
+
         // Try to refresh token
         const response = await axios.post(
           `${API_BASE_URL}/users/token/refresh/`,
           { refresh: refreshToken }
         );
-        
+
         const { access } = response.data;
         localStorage.setItem('access_token', access);
-        
+
         // Retry original request
         originalRequest.headers.Authorization = `Bearer ${access}`;
         return axiosInstance(originalRequest);
-        
+
       } catch (refreshError) {
         // Refresh failed, logout user
         localStorage.removeItem('access_token');
@@ -65,7 +75,7 @@ axiosInstance.interceptors.response.use(
         return Promise.reject(refreshError);
       }
     }
-    
+
     return Promise.reject(error);
   }
 );

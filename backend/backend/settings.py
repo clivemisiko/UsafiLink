@@ -144,7 +144,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
-    BASE_DIR / "frontend/dist",  # If you have a frontend build
+    BASE_DIR.parent / "frontend/dist",  # Frontend is a sibling to backend folder
 ]
 
 MEDIA_URL = 'media/'
@@ -176,6 +176,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
+    "https://usafilink-frontend.onrender.com",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
