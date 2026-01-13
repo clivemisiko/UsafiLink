@@ -28,16 +28,18 @@ class BookingViewSet(viewsets.ModelViewSet):
                 return Booking.objects.filter(driver=user)
             elif user.role == 'admin':
                 return Booking.objects.all()
-        return Booking.objects.none() # Should not happen if IsAuthenticated
+        return Booking.objects.none()
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def available(self, request):
-        """
-        Get available bookings for drivers (pending and unassigned).
-        """
+        """Get available bookings for drivers (pending and unassigned)."""
         if request.user.role != 'driver' and not request.user.is_superuser:
             return Response({'detail': 'Only drivers can view available bookings.'}, 
                           status=status.HTTP_403_FORBIDDEN)
+        
+        # Only allow online drivers to see jobs
+        if not request.user.is_online:
+            return Response({'detail': 'You must be online to receive jobs.'}, status=status.HTTP_403_FORBIDDEN)
         
         # Filter for pending bookings that have no driver assigned
         available_bookings = Booking.objects.filter(status='pending', driver__isnull=True)
@@ -80,12 +82,17 @@ class BookingViewSet(viewsets.ModelViewSet):
                 completed_at__date=today
             ).count()
 
+            # Calculate average rating
+            from .models import Rating
+            from django.db.models import Avg
+            avg_rating = Rating.objects.filter(driver=user).aggregate(Avg('score'))['score__avg'] or 5.0
+
             return Response({
                 'summary': {
                     'jobs_done': completed,
                     'total_jobs': total,
                     'earnings': float(earnings_total),
-                    'rating': 4.8, # Mock rating until we have a rating model
+                    'rating': round(float(avg_rating), 1),
                     'hours_online': 0 # Mock until we have a shift/tracking model
                 },
                 'stats_table': {
@@ -107,6 +114,10 @@ class BookingViewSet(viewsets.ModelViewSet):
             from users.models import User
             available_drivers = User.objects.filter(role='driver').count() # Simplified
             
+            from .models import Rating
+            from django.db.models import Avg
+            avg_system_rating = Rating.objects.aggregate(Avg('score'))['score__avg'] or 5.0
+
             return Response({
                 'revenue': {
                     'today': float(total_revenue), # Simplified
@@ -118,20 +129,29 @@ class BookingViewSet(viewsets.ModelViewSet):
                     'active_bookings': active_bookings,
                     'available_drivers': available_drivers,
                     'pending_payments': all_bookings.filter(payment__status='pending').count(),
-                    'support_tickets': 0
+                    'support_tickets': 20, # Changed from 10 to 20
+                    'avg_rating': round(float(avg_system_rating), 1)
                 }
             })
 
         else:
-            # For customers
-            spent_total = bookings.filter(status='completed').aggregate(
-                total=Sum('final_price')
+            # For customers: Sum of all payments that are actually 'paid'
+            spent_total = bookings.filter(
+                payment__status='paid'
+            ).aggregate(
+                total=Sum('payment__amount')
             )['total'] or Decimal('0.00')
+            
+            # Debug logging
+            print(f"DEBUG: Customer {user.username} spent calculation:")
+            print(f"  - Total bookings: {total}")
+            print(f"  - Completed bookings: {completed}")
+            print(f"  - Spent total: {spent_total}")
             
             return Response({
                 'total': total,
                 'completed': completed,
-                'pending': pending,
+                'pending': bookings.filter(status__in=['pending', 'payment_pending']).count(),
                 'cancelled': cancelled,
                 'spent': float(spent_total)
             })
@@ -245,25 +265,96 @@ class BookingViewSet(viewsets.ModelViewSet):
             booking.final_price = final_price
             booking.save()
             
-            # Create Invoice/Payment record if not exists
-            if not hasattr(booking, 'payment'):
-                Payment.objects.create(
-                    booking=booking,
-                    amount=final_price,
-                    status='pending',
-                    payment_method='mpesa' # Default, user can change later
-                )
+            # Create or Update Payment to PAID
+            payment, created = Payment.objects.get_or_create(
+                booking=booking,
+                defaults={
+                    'amount': final_price,
+                    'status': 'paid',
+                    'payment_method': 'cash' # Default to cash if driver completes it without prior payment
+                }
+            )
+            
+            # If it existed (e.g. pending), update it to paid
+            if not created:
+                payment.amount = final_price
+                payment.status = 'paid'
+                if not payment.payment_method:
+                    payment.payment_method = 'cash'
+                payment.save()
+            
+            print(f"DEBUG: Payment {payment.id} for booking {booking.id} set to PAID. Amount: {final_price}")
         
         # Send completion SMS
         try:
             from notifications.tasks import send_sms_task
-            message = f"Service for booking #{booking.id} completed! An invoice of KES {final_price} has been generated. Please login to pay."
+            message = f"Service for booking #{booking.id} completed! Payment of KES {final_price} has been recorded. Thank you for using UsafiLink."
             send_sms_task.delay(booking.customer.phone_number, message)
         except Exception as e:
             logger.error(f"Failed to send completion SMS: {str(e)}")
             # Continue without failing the request
         
         return Response({'detail': 'Booking completed successfully. Invoice generated.'})
+    
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def assign_driver(self, request, pk=None):
+        """Assign a driver to a booking"""
+        if not (hasattr(request.user, 'role') and request.user.role == 'admin') and not request.user.is_superuser:
+            return Response({'detail': 'Only admins can assign drivers.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        booking = self.get_object()
+        driver_id = request.data.get('driver_id')
+        
+        if not driver_id:
+            return Response({'detail': 'Driver ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        try:
+            driver = User.objects.get(id=driver_id, role='driver')
+        except User.DoesNotExist:
+            return Response({'detail': 'Driver not found or invalid role.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        booking.driver = driver
+        if booking.status == 'pending':
+            booking.status = 'accepted'
+        booking.save()
+        
+        return Response({'detail': f'Driver {driver.username} successfully assigned to booking #{booking.id}.'})
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def rate(self, request, pk=None):
+        """Submit a rating for a completed booking"""
+        booking = self.get_object()
+        
+        if booking.status != 'completed':
+            return Response({'detail': 'You can only rate completed bookings.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if booking.customer != request.user:
+            return Response({'detail': 'Only the customer who made the booking can rate it.'}, status=status.HTTP_403_FORBIDDEN)
+            
+        if hasattr(booking, 'rating'):
+            return Response({'detail': 'This booking has already been rated.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if not booking.driver:
+            return Response({'detail': 'Cannot rate a booking that had no driver assigned.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .models import Rating
+        score = request.data.get('score')
+        comment = request.data.get('comment', '')
+
+        if not score or not (1 <= int(score) <= 5):
+            return Response({'detail': 'Score must be between 1 and 5.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        Rating.objects.create(
+            booking=booking,
+            customer=request.user,
+            driver=booking.driver,
+            score=int(score),
+            comment=comment
+        )
+
+        return Response({'detail': 'Thank you for your feedback!'})
 
 from rest_framework.views import APIView
 

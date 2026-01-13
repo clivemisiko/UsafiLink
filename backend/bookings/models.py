@@ -6,6 +6,7 @@ User = settings.AUTH_USER_MODEL
 class Booking(models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
+        ('payment_pending', 'Payment Pending'),
         ('accepted', 'Accepted'),
         ('started', 'On the Way'),
         ('arrived', 'Arrived/Working'),
@@ -60,3 +61,14 @@ class Booking(models.Model):
 
     def __str__(self):
         return f"Booking {self.id} - {self.get_service_type_display()} - {self.status}"
+
+class Rating(models.Model):
+    booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name='rating')
+    customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='given_ratings')
+    driver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_ratings')
+    score = models.IntegerField(choices=[(i, str(i)) for i in range(1, 6)])
+    comment = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Rating for Booking {self.booking.id}: {self.score}/5"

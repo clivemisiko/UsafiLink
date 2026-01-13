@@ -89,7 +89,8 @@ const Bookings = () => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800 border-green-200';
       case 'accepted': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'pending':
+      case 'payment_pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -98,8 +99,9 @@ const Bookings = () => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed': return <CheckCircle className="w-4 h-4" />;
-      case 'accepted': return <Clock className="w-4 h-4" />;
-      case 'pending': return <Clock className="w-4 h-4" />;
+      case 'accepted': return <CheckCircle className="w-4 h-4 text-blue-600" />;
+      case 'pending':
+      case 'payment_pending': return <Clock className="w-4 h-4" />;
       case 'cancelled': return <XCircle className="w-4 h-4" />;
       default: return null;
     }
@@ -114,6 +116,40 @@ const Bookings = () => {
       } catch (error) {
         toast.error('Failed to cancel booking');
       }
+    }
+  };
+
+  const handleExportBookings = () => {
+    try {
+      // Create CSV content
+      const headers = ['ID', 'Service Type', 'Location', 'Date', 'Status', 'Amount'];
+      const csvRows = [headers.join(',')];
+
+      filteredBookings.forEach(booking => {
+        const row = [
+          booking.id,
+          booking.service_type?.replace('_', ' ') || 'N/A',
+          `"${booking.location_name}"`,
+          formatDate(booking.scheduled_date),
+          booking.status,
+          booking.estimated_price || booking.final_price || 0
+        ];
+        csvRows.push(row.join(','));
+      });
+
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bookings_export_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Bookings exported successfully!');
+    } catch (error) {
+      toast.error('Failed to export bookings');
+      console.error(error);
     }
   };
 
@@ -224,7 +260,7 @@ const Bookings = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Pending</p>
                 <p className="text-2xl font-semibold text-gray-900">
-                  {bookings.filter(b => b.status === 'pending').length}
+                  {bookings.filter(b => ['pending', 'payment_pending'].includes(b.status)).length}
                 </p>
               </div>
             </div>
@@ -257,7 +293,7 @@ const Bookings = () => {
                 <p className="text-sm font-medium text-gray-600">Spent</p>
                 <p className="text-2xl font-semibold text-gray-900">
                   {formatCurrency(bookings
-                    .filter(b => b.status === 'completed')
+                    .filter(b => b.payment_status === 'paid')
                     .reduce((sum, b) => {
                       const price = Number(b.final_price) || Number(b.estimated_price) || 0;
                       return sum + price;
@@ -309,14 +345,14 @@ const Bookings = () => {
                                 {booking.service_type?.replace('_', ' ').toUpperCase()} - {booking.tank_size}L
                               </p>
                               <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
-                                {booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1)}
+                                {booking.status?.replace('_', ' ').charAt(0).toUpperCase() + booking.status?.replace('_', ' ').slice(1)}
                               </span>
-                              {booking.status === 'completed' && booking.payment_status !== 'completed' && (
+                              {booking.status === 'completed' && booking.payment_status !== 'paid' && (
                                 <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                   Incomplete Payment
                                 </span>
                               )}
-                              {booking.payment_status === 'completed' && (
+                              {booking.payment_status === 'paid' && (
                                 <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                   Paid
                                 </span>
@@ -371,7 +407,7 @@ const Bookings = () => {
         {/* Export Button */}
         {filteredBookings.length > 0 && (
           <div className="mt-6 flex justify-end">
-            <button className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <button onClick={handleExportBookings} className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
               <Download className="mr-2 h-4 w-4" />
               Export
             </button>

@@ -171,14 +171,7 @@ REST_FRAMEWORK = {
 }
 
 # CORS settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5173",
-    "https://usafilink-frontend.onrender.com",
-]
-
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_METHODS = [
@@ -200,6 +193,7 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'Bypass-Tunnel-Reminder',
 ]
 
 SIMPLE_JWT = {
@@ -231,5 +225,26 @@ MPESA_CALLBACK_URL = config('MPESA_CALLBACK_URL', default='http://localhost:8000
 AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='Usafilink')
 AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='atsk_a8c5f59adf97197e26beb425b171f023694a24a51b12f8f7a863ab4cd40fde46c43f0580')
 AFRICASTALKING_SENDER_ID = config('AFRICASTALKING_SENDER_ID', default='Usafilink')
+
+# Email Configuration
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+
+# Support both standard Django and user-provided names
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default=config('MAIL_USERNAME', default=''))
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default=config('MAIL_PASSWORD', default=''))
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=config('MAIL_DEFAULT_SENDER', default='noreply@usafilink.com'))
+
+# Startup check (Masked password)
+if EMAIL_HOST_USER:
+    print(f"EMAIL CONFIG: Attempting to use {EMAIL_HOST_USER} for SMTP")
+else:
+    print("WARNING: No EMAIL_HOST_USER or MAIL_USERNAME found in .env")
+
+# Email verification settings
+EMAIL_VERIFICATION_REQUIRED = True
+EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS = 24
 
 # Force reload for MPESA_ENV

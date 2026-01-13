@@ -14,6 +14,7 @@ import {
   X
 } from 'lucide-react';
 import { paymentsAPI } from '../api/payments';
+import axiosInstance, { API_BASE_URL } from '../api/axiosConfig';
 import toast from 'react-hot-toast';
 
 const Payments = () => {
@@ -28,8 +29,25 @@ const Payments = () => {
   const location = useLocation();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentData, setPaymentData] = useState({ bookingId: null, amount: 0 });
+  const [selectedMethod, setSelectedMethod] = useState('mpesa'); // 'mpesa' or 'bank'
+  const [bankReference, setBankReference] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
+
+  const handleViewReceipt = async (paymentId) => {
+    const toastId = toast.loading('Generating receipt...');
+    try {
+      const response = await axiosInstance.get(`/payments/payments/${paymentId}/receipt/`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/html' }));
+      window.open(url, '_blank');
+      toast.success('Receipt generated', { id: toastId });
+    } catch (error) {
+      console.error('Receipt error:', error);
+      toast.error('Failed to load receipt', { id: toastId });
+    }
+  };
 
   useEffect(() => {
     fetchPayments();
@@ -75,6 +93,34 @@ const Payments = () => {
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.error || 'Failed to initiate payment', { id: toastId });
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const handleBankTransfer = async (e) => {
+    e.preventDefault();
+    if (!bankReference.trim()) {
+      toast.error('Please enter the bank transaction reference number');
+      return;
+    }
+
+    setProcessingPayment(true);
+    const toastId = toast.loading('Submitting bank transfer details...');
+
+    try {
+      await paymentsAPI.initiateBankTransfer({
+        booking_id: paymentData.bookingId,
+        bank_reference: bankReference
+      });
+
+      toast.success('Transfer submitted! Our team will verify it.', { id: toastId });
+      setShowPaymentModal(false);
+      setBankReference('');
+      fetchPayments();
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.detail || 'Failed to submit bank transfer', { id: toastId });
     } finally {
       setProcessingPayment(false);
     }
@@ -193,6 +239,41 @@ const Payments = () => {
       } catch (error) {
         toast.error('Failed to retry payment');
       }
+    }
+  };
+
+  const handleExportPayments = () => {
+    try {
+      // Create CSV content
+      const headers = ['Payment ID', 'Booking ID', 'Amount', 'Method', 'Status', 'Date', 'Receipt/Reference'];
+      const csvRows = [headers.join(',')];
+
+      filteredPayments.forEach(payment => {
+        const row = [
+          payment.id,
+          payment.booking_details?.id || 'N/A',
+          payment.amount || 0,
+          payment.payment_method?.toUpperCase() || 'N/A',
+          payment.status,
+          formatDate(payment.created_at),
+          payment.mpesa_receipt || payment.bank_reference || 'N/A'
+        ];
+        csvRows.push(row.join(','));
+      });
+
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `payment_statements_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Payment statements exported successfully!');
+    } catch (error) {
+      toast.error('Failed to export payment statements');
+      console.error(error);
     }
   };
 
@@ -402,16 +483,17 @@ const Payments = () => {
                             Payment #{payment.id}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {payment.mpesa_receipt ? `Receipt: ${payment.mpesa_receipt}` : 'No receipt'}
+                            {payment.mpesa_receipt ? `Receipt: ${payment.mpesa_receipt}` :
+                              payment.bank_reference ? `Ref: ${payment.bank_reference}` : 'No receipt'}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {payment.booking?.location_name || 'N/A'}
+                          {payment.booking_details?.location || 'N/A'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          Booking #{payment.booking?.id}
+                          Booking #{payment.booking_details?.id}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -446,14 +528,13 @@ const Payments = () => {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => {
-                              // View receipt
-                              if (payment.mpesa_receipt) {
-                                window.open(`/api/payments/${payment.id}/receipt/`, '_blank');
+                              if (payment.status === 'paid') {
+                                handleViewReceipt(payment.id);
                               } else {
-                                toast.error('No receipt available');
+                                toast.error('Receipt is only available for paid payments');
                               }
                             }}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-blue-600 hover:text-blue-900 font-bold"
                           >
                             Receipt
                           </button>
@@ -478,7 +559,7 @@ const Payments = () => {
         {/* Export Button */}
         {filteredPayments.length > 0 && (
           <div className="mt-6 flex justify-end">
-            <button className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <button onClick={handleExportPayments} className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
               <Download className="mr-2 h-4 w-4" />
               Export Statements
             </button>
@@ -505,15 +586,16 @@ const Payments = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center mb-4">
               <CreditCard className="w-6 h-6 text-blue-600 mr-3" />
-              <h3 className="text-lg font-semibold text-gray-800">Card Payment</h3>
+              <h3 className="text-lg font-semibold text-gray-800">Bank Transfer</h3>
             </div>
             <p className="text-gray-600 mb-4">
-              Pay using Visa, MasterCard, or other debit/credit cards.
+              Transfer funds directly to our bank account.
             </p>
-            <div className="text-sm text-gray-500">
-              <p>• All major cards accepted</p>
-              <p>• Secure SSL encryption</p>
-              <p>• 3D Secure enabled</p>
+            <div className="text-sm bg-blue-50 p-4 rounded-lg mb-4">
+              <p className="font-bold text-blue-800">Bank: KCB Bank</p>
+              <p className="text-blue-700">Paybill: 522522 | Acc: 132470456</p>
+              <p className="text-blue-700">Name: CLIVE MISIKO MUTENDE</p>
+              <p className="text-blue-700 text-xs mt-2 italic">* Use Booking # as reference</p>
             </div>
           </div>
 
@@ -547,61 +629,112 @@ const Payments = () => {
 
             <div className="p-6">
               <div className="text-center mb-6">
-                <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Smartphone className="w-8 h-8 text-green-600" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900">M-PESA Payment</h3>
+                <h3 className="text-xl font-bold text-gray-900">Make Payment</h3>
                 <p className="text-gray-600 mt-2">
                   Complete payment for Booking #{paymentData.bookingId}
                 </p>
-                <p className="text-2xl font-bold text-green-600 mt-2">
+                <p className="text-2xl font-bold text-blue-600 mt-2">
                   KES {paymentData.amount?.toLocaleString()}
                 </p>
               </div>
 
-              <form onSubmit={handleInitiatePayment} className="space-y-4">
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    M-PESA Phone Number
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
-                      🇰🇪
-                    </span>
+              {/* Method Selector */}
+              <div className="flex bg-gray-100 p-1 rounded-lg mb-6">
+                <button
+                  onClick={() => setSelectedMethod('mpesa')}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${selectedMethod === 'mpesa' ? 'bg-white shadow text-green-600' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  M-PESA
+                </button>
+                <button
+                  onClick={() => setSelectedMethod('bank')}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${selectedMethod === 'bank' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Bank Transfer
+                </button>
+              </div>
+
+              {selectedMethod === 'mpesa' ? (
+                <form onSubmit={handleInitiatePayment} className="space-y-4">
+                  <div>
+                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                      M-PESA Phone Number
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                        🇰🇪
+                      </span>
+                      <input
+                        type="text"
+                        id="phone"
+                        required
+                        placeholder="254712345678"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                        className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={processingPayment}
+                    className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${processingPayment ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                  >
+                    {processingPayment ? (
+                      <>
+                        <Loader className="w-5 h-5 animate-spin mr-2" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Send STK Push'
+                    )}
+                  </button>
+                  <p className="text-center text-xs text-gray-500">
+                    You will receive an M-PESA prompt on your phone.
+                  </p>
+                </form>
+              ) : (
+                <form onSubmit={handleBankTransfer} className="space-y-4">
+                  <div className="bg-gray-50 p-4 rounded-lg text-sm border border-gray-100">
+                    <p className="font-bold text-gray-700">Bank Details:</p>
+                    <p className="text-gray-600">KCB Bank | Paybill: 522522</p>
+                    <p className="text-gray-600">Acc: 132470456 (CLIVE MISIKO MUTENDE)</p>
+                  </div>
+                  <div>
+                    <label htmlFor="bankRef" className="block text-sm font-medium text-gray-700 mb-1">
+                      Transaction Reference Code
+                    </label>
                     <input
                       type="text"
-                      id="phone"
+                      id="bankRef"
                       required
-                      placeholder="254712345678"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500"
+                      placeholder="e.g. EBX-98234-JK"
+                      value={bankReference}
+                      onChange={(e) => setBankReference(e.target.value)}
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Format: 2547XXXXXXXX</p>
-                </div>
 
-                <button
-                  type="submit"
-                  disabled={processingPayment}
-                  className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${processingPayment ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
-                    }`}
-                >
-                  {processingPayment ? (
-                    <>
-                      <Loader className="w-5 h-5 animate-spin mr-2" />
-                      Processing...
-                    </>
-                  ) : (
-                    'Pay Now'
-                  )}
-                </button>
-              </form>
-
-              <div className="mt-4 text-center text-sm text-gray-500">
-                You will receive an M-PESA prompts on your phone.
-                Only after entering your PIN will the payment be processed.
-              </div>
+                  <button
+                    type="submit"
+                    disabled={processingPayment}
+                    className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${processingPayment ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                  >
+                    {processingPayment ? (
+                      <>
+                        <Loader className="w-5 h-5 animate-spin mr-2" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Submit Reference'
+                    )}
+                  </button>
+                  <p className="text-center text-xs text-gray-500">
+                    Your payment will be verified by our team within 24 hours.
+                  </p>
+                </form>
+              )}
             </div>
           </div>
         </div>

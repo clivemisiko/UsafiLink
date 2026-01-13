@@ -1,10 +1,8 @@
-// frontend/src/pages/admin/Users.jsx
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
-  Users,
+  Users as UsersIcon,
   UserCheck,
-  UserX,
   Shield,
   Mail,
   Phone,
@@ -14,7 +12,13 @@ import {
   Edit,
   MoreVertical,
   Download,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  ChevronRight,
+  UserX,
+  CreditCard,
+  ExternalLink,
+  Smartphone
 } from 'lucide-react';
 import { adminAPI } from '../../api/admin';
 import toast from 'react-hot-toast';
@@ -26,8 +30,22 @@ const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedUser, setSelectedUser] = useState(null);
   const [showActions, setShowActions] = useState(null);
+  const location = useLocation();
+
+  useEffect(() => {
+    // Determine the default role filter based on the URL path
+    if (location.pathname === '/admin/drivers') {
+      setRoleFilter('driver');
+    } else if (location.pathname === '/admin/users') {
+      // In this system, "Users" usually refers to Customers in the sidebar context
+      // but let's keep it 'all' or 'customer' depending on preference.
+      // If the user feels "Drivers" is separate, then "Users" should probably be "Customers".
+      setRoleFilter('customer');
+    } else {
+      setRoleFilter('all');
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     fetchUsers();
@@ -38,10 +56,10 @@ const AdminUsers = () => {
   }, [users, searchTerm, roleFilter, statusFilter]);
 
   const fetchUsers = async () => {
+    setLoading(true);
     try {
       const data = await adminAPI.getUsers();
       setUsers(data);
-      setFilteredUsers(data);
     } catch (error) {
       toast.error('Failed to fetch users');
       console.error(error);
@@ -51,28 +69,29 @@ const AdminUsers = () => {
   };
 
   const filterUsers = () => {
-    let filtered = users;
+    let filtered = [...users];
 
     // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(user =>
-        user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phone_number?.includes(searchTerm) ||
-        user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.last_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(u =>
+        u.username?.toLowerCase().includes(term) ||
+        u.email?.toLowerCase().includes(term) ||
+        u.phone_number?.includes(term) ||
+        u.first_name?.toLowerCase().includes(term) ||
+        u.last_name?.toLowerCase().includes(term)
       );
     }
 
     // Apply role filter
     if (roleFilter !== 'all') {
-      filtered = filtered.filter(user => user.role === roleFilter);
+      filtered = filtered.filter(u => u.role === roleFilter);
     }
 
     // Apply status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(user => 
-        statusFilter === 'active' ? user.is_active : !user.is_active
+      filtered = filtered.filter(u =>
+        statusFilter === 'active' ? u.is_active : !u.is_active
       );
     }
 
@@ -82,7 +101,7 @@ const AdminUsers = () => {
   const handleActivateUser = async (userId) => {
     try {
       await adminAPI.activateUser(userId);
-      toast.success('User activated successfully');
+      toast.success('User activated');
       fetchUsers();
     } catch (error) {
       toast.error('Failed to activate user');
@@ -90,10 +109,10 @@ const AdminUsers = () => {
   };
 
   const handleDeactivateUser = async (userId) => {
-    if (window.confirm('Are you sure you want to deactivate this user?')) {
+    if (window.confirm('Deactivate this user? They will no longer be able to login.')) {
       try {
         await adminAPI.deactivateUser(userId);
-        toast.success('User deactivated successfully');
+        toast.success('User deactivated');
         fetchUsers();
       } catch (error) {
         toast.error('Failed to deactivate user');
@@ -101,477 +120,239 @@ const AdminUsers = () => {
     }
   };
 
-  const handleChangeRole = async (userId, newRole) => {
-    if (window.confirm(`Change user role to ${newRole}?`)) {
+  const handleChangeRole = async (userId, currentRole) => {
+    const roles = ['customer', 'driver', 'admin'];
+    const newRole = prompt(`Change role from "${currentRole}" to:`, currentRole);
+
+    if (newRole && roles.includes(newRole) && newRole !== currentRole) {
       try {
         await adminAPI.changeUserRole(userId, newRole);
-        toast.success('User role changed successfully');
+        toast.success(`Role changed to ${newRole}`);
         fetchUsers();
+        setShowActions(null);
       } catch (error) {
-        toast.error('Failed to change user role');
+        toast.error('Failed to change role');
       }
+    } else if (newRole && !roles.includes(newRole)) {
+      toast.error('Invalid role. Must be: customer, driver, or admin');
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-KE', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+  const handleViewDetails = (userId) => {
+    // Navigate to user details page or show modal
+    toast.info(`Viewing details for user ID: ${userId}`);
+    setShowActions(null);
   };
 
-  const getRoleColor = (role) => {
-    switch(role) {
-      case 'admin': return 'bg-purple-100 text-purple-800';
-      case 'driver': return 'bg-blue-100 text-blue-800';
-      case 'customer': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const getRoleBadge = (role) => {
+    switch (role) {
+      case 'admin': return 'bg-purple-50 text-purple-700 border-purple-100 ring-4 ring-purple-50/50';
+      case 'driver': return 'bg-blue-50 text-blue-700 border-blue-100 ring-4 ring-blue-50/50';
+      case 'customer': return 'bg-green-50 text-green-700 border-green-100 ring-4 ring-green-50/50';
+      default: return 'bg-gray-50 text-gray-700 border-gray-100';
     }
   };
 
-  const getStatusColor = (isActive) => {
-    return isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+  const stats = {
+    total: users.length,
+    active: users.filter(u => u.is_active).length,
+    drivers: users.filter(u => u.role === 'driver').length,
+    customers: users.filter(u => u.role === 'customer').length,
   };
 
-  if (loading) {
+  if (loading && users.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="h-96 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">User Management</h1>
-            <p className="mt-1 text-sm text-gray-600">Manage all system users</p>
-          </div>
-          <div className="mt-4 md:mt-0 flex space-x-3">
-            <button
-              onClick={fetchUsers}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
-            </button>
-            <button
-              onClick={() => setShowDriversModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-blue-300 rounded-md shadow-sm text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100"
-            >
-              <Shield className="mr-2 h-4 w-4" />
-              Show All Drivers
-            </button>
-            <button
-              onClick={() => setShowCustomersModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-green-300 rounded-md shadow-sm text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100"
-            >
-              <UserCheck className="mr-2 h-4 w-4" />
-              Show All Customers
-            </button>
-            <Link
-              to="/admin/users/new"
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-            >
-              <Users className="mr-2 h-4 w-4" />
-              Add User
-            </Link>
-          </div>
+    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+            {roleFilter === 'driver' ? 'Driver Management' : roleFilter === 'customer' ? 'Customer Management' : 'User Directory'}
+          </h1>
+          <p className="text-gray-500 font-medium mt-1">Manage, verify and monitor all accounts</p>
         </div>
-      </div>
-  // State for modals
-  const [showDriversModal, setShowDriversModal] = useState(false);
-  const [showCustomersModal, setShowCustomersModal] = useState(false);
-      {/* Drivers Modal */}
-      {showDriversModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 w-full max-w-2xl shadow-lg rounded-md bg-white">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">All Drivers</h3>
-              <button onClick={() => setShowDriversModal(false)} className="text-gray-400 hover:text-gray-500">×</button>
-            </div>
-            <div className="overflow-x-auto max-h-[60vh]">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {users.filter(u => u.role === 'driver').map(driver => (
-                    <tr key={driver.id}>
-                      <td className="px-4 py-2">{driver.username}</td>
-                      <td className="px-4 py-2">{driver.first_name} {driver.last_name}</td>
-                      <td className="px-4 py-2">{driver.email}</td>
-                      <td className="px-4 py-2">{driver.phone_number}</td>
-                      <td className="px-4 py-2">{driver.is_active ? 'Active' : 'Inactive'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex justify-end mt-4">
-              <button onClick={() => setShowDriversModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Customers Modal */}
-      {showCustomersModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 w-full max-w-2xl shadow-lg rounded-md bg-white">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">All Customers</h3>
-              <button onClick={() => setShowCustomersModal(false)} className="text-gray-400 hover:text-gray-500">×</button>
-            </div>
-            <div className="overflow-x-auto max-h-[60vh]">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Username</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {users.filter(u => u.role === 'customer').map(customer => (
-                    <tr key={customer.id}>
-                      <td className="px-4 py-2">{customer.username}</td>
-                      <td className="px-4 py-2">{customer.first_name} {customer.last_name}</td>
-                      <td className="px-4 py-2">{customer.email}</td>
-                      <td className="px-4 py-2">{customer.phone_number}</td>
-                      <td className="px-4 py-2">{customer.is_active ? 'Active' : 'Inactive'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex justify-end mt-4">
-              <button onClick={() => setShowCustomersModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Users className="h-5 w-5 text-blue-600" />
-              </div>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600">Total Users</p>
-              <p className="text-xl font-semibold text-gray-900">{users.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <UserCheck className="h-5 w-5 text-green-600" />
-              </div>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600">Customers</p>
-              <p className="text-xl font-semibold text-gray-900">
-                {users.filter(u => u.role === 'customer').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Shield className="h-5 w-5 text-blue-600" />
-              </div>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600">Drivers</p>
-              <p className="text-xl font-semibold text-gray-900">
-                {users.filter(u => u.role === 'driver').length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Shield className="h-5 w-5 text-purple-600" />
-              </div>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600">Admins</p>
-              <p className="text-xl font-semibold text-gray-900">
-                {users.filter(u => u.role === 'admin').length}
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={fetchUsers}
+            className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all"
+            title="Refresh Data"
+          >
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <Link
+            to="/admin/users/new"
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-200 hover:bg-blue-600 hover:shadow-blue-200 transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Add New User</span>
+          </Link>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4 md:p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
+      {/* Mini Stats Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { label: 'Total Accounts', value: stats.total, color: 'blue', icon: UsersIcon },
+          { label: 'Active Now', value: stats.active, color: 'green', icon: UserCheck },
+          { label: 'Verified Drivers', value: stats.drivers, color: 'indigo', icon: Shield },
+          { label: 'Total Customers', value: stats.customers, color: 'emerald', icon: Smartphone }
+        ].map((stat, i) => (
+          <div key={i} className="bg-white p-6 rounded-[2rem] border border-gray-50 shadow-sm group hover:scale-[1.02] transition-all">
+            <div className="flex items-center gap-4">
+              <div className={`bg-${stat.color}-50 p-3 rounded-2xl text-${stat.color}-600`}>
+                <stat.icon className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{stat.label}</p>
+                <p className="text-2xl font-black text-gray-900">{stat.value}</p>
+              </div>
             </div>
-            <input
-              type="text"
-              placeholder="Search users..."
-              className="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
           </div>
+        ))}
+      </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Role
-            </label>
-            <select
-              className="block w-full pl-3 pr-10 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="all">All Roles</option>
-              <option value="customer">Customers</option>
-              <option value="driver">Drivers</option>
-              <option value="admin">Admins</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              className="block w-full pl-3 pr-10 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-
-          <div className="flex items-end">
-            <button
-              onClick={() => {
-                setSearchTerm('');
-                setRoleFilter('all');
-                setStatusFilter('all');
-              }}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 w-full justify-center"
-            >
-              <Filter className="mr-2 h-4 w-4" />
-              Clear Filters
-            </button>
-          </div>
+      {/* Filter Bar */}
+      <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-50 flex flex-col md:flex-row gap-4 items-center">
+        <div className="relative flex-1 w-full">
+          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by name, email or phone..."
+            className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/10 placeholder:text-gray-400"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
+        <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-2xl">
+          {['all', 'customer', 'driver', 'admin'].map((r) => (
+            <button
+              key={r}
+              onClick={() => setRoleFilter(r)}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${roleFilter === r ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+                }`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+        <select
+          className="bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 focus:ring-2 focus:ring-blue-500/10"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="all">Any Status</option>
+          <option value="active">Active Only</option>
+          <option value="inactive">Suspended</option>
+        </select>
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900">
-                Users ({filteredUsers.length})
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                List of all registered users
-              </p>
-            </div>
-            <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </button>
-          </div>
-        </div>
-
-        {filteredUsers.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {searchTerm || roleFilter !== 'all' || statusFilter !== 'all'
-                ? 'No users match your filters'
-                : 'No users in the system yet'}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-50 overflow-hidden">
+        <div className="overflow-x-auto">
+          {filteredUsers.length > 0 ? (
+            <table className="w-full text-left">
+              <thead className="bg-gray-50/50 text-gray-400 uppercase text-[10px] font-black tracking-widest">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Joined
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-8 py-5">Identity</th>
+                  <th className="px-8 py-5">Contact Details</th>
+                  <th className="px-8 py-5">Role</th>
+                  <th className="px-8 py-5">Status</th>
+                  <th className="px-8 py-5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                            <span className="text-blue-600 font-semibold">
-                              {user.username?.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
+              <tbody className="divide-y divide-gray-50">
+                {filteredUsers.map((u) => (
+                  <tr key={u.id} className="hover:bg-blue-50/10 transition-colors group">
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-tr from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center text-slate-500 font-black relative overflow-hidden ring-4 ring-transparent group-hover:ring-blue-50 transition-all">
+                          {u.username?.charAt(0).toUpperCase()}
+                          {u.role === 'driver' && (
+                            <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full ${u.is_online ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                          )}
                         </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.first_name && user.last_name 
-                              ? `${user.first_name} ${user.last_name}`
-                              : user.username}
+                        <div>
+                          <div className="text-sm font-black text-gray-900 group-hover:text-blue-600 transition-colors">
+                            {u.first_name || u.last_name ? `${u.first_name} ${u.last_name}` : u.username}
                           </div>
-                          <div className="text-sm text-gray-500">
-                            @{user.username}
-                          </div>
+                          <div className="text-xs text-gray-400 font-medium">@{u.username}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        <div className="flex items-center">
-                          <Mail className="h-4 w-4 text-gray-400 mr-1" />
-                          {user.email}
+                    <td className="px-8 py-5">
+                      <div className="space-y-1">
+                        <div className="text-xs font-bold text-gray-700 flex items-center gap-2">
+                          <Mail className="w-3 h-3 text-gray-400" />
+                          {u.email}
                         </div>
-                        <div className="flex items-center mt-1">
-                          <Phone className="h-4 w-4 text-gray-400 mr-1" />
-                          {user.phone_number || 'Not set'}
+                        <div className="text-[10px] font-bold text-gray-400 flex items-center gap-2">
+                          <Phone className="w-3 h-3" />
+                          {u.phone_number || 'No Phone'}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(user.role)}`}>
-                        {user.role?.toUpperCase()}
+                    <td className="px-8 py-5">
+                      <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border border-transparent ${getRoleBadge(u.role)}`}>
+                        {u.role}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(user.is_active)}`}>
-                        {user.is_active ? 'ACTIVE' : 'INACTIVE'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 text-gray-400 mr-1" />
-                        {formatDate(user.date_joined)}
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${u.is_active ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></div>
+                        <span className={`text-[10px] font-black uppercase tracking-tighter ${u.is_active ? 'text-green-600' : 'text-red-600'}`}>
+                          {u.is_active ? 'Active' : 'Suspended'}
+                        </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => setSelectedUser(user)}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
+                    <td className="px-8 py-5 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Link to={`/admin/users/edit/${u.id}`} className="p-2.5 bg-gray-50 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-xl transition-all">
+                          <Edit className="w-4 h-4" />
+                        </Link>
                         <div className="relative">
                           <button
-                            onClick={() => setShowActions(showActions === user.id ? null : user.id)}
-                            className="text-gray-600 hover:text-gray-900"
+                            onClick={() => setShowActions(showActions === u.id ? null : u.id)}
+                            className={`p-2.5 rounded-xl transition-all ${showActions === u.id ? 'bg-slate-900 text-white' : 'bg-gray-50 text-gray-400 hover:bg-slate-900 hover:text-white'}`}
                           >
-                            <MoreVertical className="h-4 w-4" />
+                            <MoreVertical className="w-4 h-4" />
                           </button>
-                          {showActions === user.id && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                              <div className="py-1">
-                                {!user.is_active && (
-                                  <button
-                                    onClick={() => {
-                                      handleActivateUser(user.id);
-                                      setShowActions(null);
-                                    }}
-                                    className="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50"
-                                  >
-                                    Activate User
-                                  </button>
-                                )}
-                                {user.is_active && (
-                                  <button
-                                    onClick={() => {
-                                      handleDeactivateUser(user.id);
-                                      setShowActions(null);
-                                    }}
-                                    className="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50"
-                                  >
-                                    Deactivate User
-                                  </button>
-                                )}
-                                {user.role !== 'admin' && (
-                                  <button
-                                    onClick={() => {
-                                      handleChangeRole(user.id, 'admin');
-                                      setShowActions(null);
-                                    }}
-                                    className="block w-full text-left px-4 py-2 text-sm text-purple-700 hover:bg-purple-50"
-                                  >
-                                    Make Admin
-                                  </button>
-                                )}
-                                {user.role !== 'driver' && (
-                                  <button
-                                    onClick={() => {
-                                      handleChangeRole(user.id, 'driver');
-                                      setShowActions(null);
-                                    }}
-                                    className="block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50"
-                                  >
-                                    Make Driver
-                                  </button>
-                                )}
-                                {user.role !== 'customer' && (
-                                  <button
-                                    onClick={() => {
-                                      handleChangeRole(user.id, 'customer');
-                                      setShowActions(null);
-                                    }}
-                                    className="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50"
-                                  >
-                                    Make Customer
-                                  </button>
-                                )}
-                              </div>
+                          {showActions === u.id && (
+                            <div className="absolute right-0 mt-3 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 p-2 animate-in slide-in-from-top-2 duration-200">
+                              {!u.is_active ? (
+                                <button
+                                  onClick={() => handleActivateUser(u.id)}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-green-600 hover:bg-green-50 rounded-xl transition-all"
+                                >
+                                  <UserCheck className="w-4 h-4" /> Activate
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleDeactivateUser(u.id)}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                >
+                                  <UserX className="w-4 h-4" /> Suspend
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleChangeRole(u.id, u.role)}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 rounded-xl transition-all"
+                              >
+                                <Shield className="w-4 h-4" /> Change Role
+                              </button>
+                              <div className="h-px bg-gray-50 my-2"></div>
+                              <button
+                                onClick={() => handleViewDetails(u.id)}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                              >
+                                <ExternalLink className="w-4 h-4" /> View Details
+                              </button>
                             </div>
                           )}
                         </div>
@@ -581,125 +362,27 @@ const AdminUsers = () => {
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {filteredUsers.length > 0 && (
-          <div className="px-4 py-3 border-t border-gray-200 sm:px-6">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Showing <span className="font-medium">1</span> to{' '}
-                <span className="font-medium">{filteredUsers.length}</span> of{' '}
-                <span className="font-medium">{filteredUsers.length}</span> results
+          ) : (
+            <div className="p-20 flex flex-col items-center text-center">
+              <div className="bg-gray-50 p-6 rounded-[2rem] mb-4">
+                <Search className="w-12 h-12 text-gray-200" />
               </div>
-              <div className="flex space-x-2">
-                <button className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                  Previous
-                </button>
-                <button className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                  Next
-                </button>
-              </div>
+              <h3 className="text-xl font-black text-gray-900">No matches found</h3>
+              <p className="text-sm text-gray-400 mt-2 font-medium max-w-xs">We couldn't find any users matching your current filters or search query.</p>
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setRoleFilter('all');
+                  setStatusFilter('all');
+                }}
+                className="mt-6 text-blue-600 font-black text-xs uppercase tracking-widest hover:tracking-[0.2em] transition-all"
+              >
+                Clear all filters
+              </button>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* User Details Modal */}
-      {selectedUser && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  User Details
-                </h3>
-                <button
-                  onClick={() => setSelectedUser(null)}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  ×
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Username
-                  </label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedUser.username}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Email
-                  </label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedUser.email}</p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Phone Number
-                  </label>
-                  <p className="mt-1 text-sm text-gray-900">{selectedUser.phone_number || 'Not set'}</p>
-                </div>
-                
-                <div className="flex space-x-4">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Role
-                    </label>
-                    <p className="mt-1 text-sm">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(selectedUser.role)}`}>
-                        {selectedUser.role?.toUpperCase()}
-                      </span>
-                    </p>
-                  </div>
-                  
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Status
-                    </label>
-                    <p className="mt-1 text-sm">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(selectedUser.is_active)}`}>
-                        {selectedUser.is_active ? 'ACTIVE' : 'INACTIVE'}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Joined Date
-                  </label>
-                  <p className="mt-1 text-sm text-gray-900">{formatDate(selectedUser.date_joined)}</p>
-                </div>
-                
-                <div className="pt-4 border-t">
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      onClick={() => setSelectedUser(null)}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
-                    >
-                      Close
-                    </button>
-                    <button
-                      onClick={() => {
-                        // Navigate to edit page
-                        setSelectedUser(null);
-                      }}
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
-                    >
-                      Edit User
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

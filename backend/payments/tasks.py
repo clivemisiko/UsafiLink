@@ -32,16 +32,22 @@ def process_mpesa_callback_task(callback_data):
             elif name == 'PhoneNumber':
                 phone_number = value
         
-        # Find payment by checkout_request_id (you need to store this)
-        # For now, find by amount and pending status
+        # Find payment by checkout_request_id
         payment = Payment.objects.filter(
-            amount=amount,
-            status='pending'
+            checkout_request_id=checkout_request_id
         ).first()
         
+        if not payment:
+            # Fallback to MerchantRequestID if CheckoutRequestID fails
+            merchant_request_id = stk_callback.get('MerchantRequestID')
+            payment = Payment.objects.filter(
+                merchant_request_id=merchant_request_id
+            ).first()
+
         if payment:
             payment.mpesa_receipt = mpesa_receipt
             payment.status = 'paid' if result_code == 0 else 'failed'
+            payment.notes = stk_callback.get('ResultDesc', '')
             payment.save()
             
             # Update booking status

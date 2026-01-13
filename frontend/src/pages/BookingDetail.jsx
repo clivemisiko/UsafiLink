@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Calendar, Clock, DollarSign, User, Phone, Loader } from 'lucide-react';
 import { bookingsAPI } from '../api/bookings';
+import axiosInstance, { API_BASE_URL } from '../api/axiosConfig';
 import toast from 'react-hot-toast';
 
 const BookingDetail = () => {
@@ -9,10 +10,23 @@ const BookingDetail = () => {
   const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [rating, setRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
 
   useEffect(() => {
     fetchBookingDetails();
   }, [id]);
+
+  const handleRatingSubmit = async () => {
+    if (!rating) return;
+    try {
+      await bookingsAPI.rateBooking(id, { score: rating, comment: ratingComment });
+      toast.success('Thank you for your rating!');
+      fetchBookingDetails(); // Refresh to show the rating
+    } catch (error) {
+      toast.error('Failed to submit rating');
+    }
+  };
 
   const fetchBookingDetails = async () => {
     try {
@@ -68,6 +82,21 @@ const BookingDetail = () => {
     return type.replace('_', ' ').split(' ').map(word =>
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
+  };
+
+  const handleViewReceipt = async (paymentId) => {
+    const toastId = toast.loading('Generating receipt...');
+    try {
+      const response = await axiosInstance.get(`/payments/payments/${paymentId}/receipt/`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/html' }));
+      window.open(url, '_blank');
+      toast.success('Receipt generated', { id: toastId });
+    } catch (error) {
+      console.error('Receipt error:', error);
+      toast.error('Failed to load receipt', { id: toastId });
+    }
   };
 
   if (loading) {
@@ -265,6 +294,14 @@ const BookingDetail = () => {
                     Make Payment
                   </button>
                 )}
+                {booking.payment_status === 'paid' && (
+                  <button
+                    onClick={() => handleViewReceipt(booking.payment?.id || booking.payment_id)}
+                    className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors font-bold"
+                  >
+                    View Receipt
+                  </button>
+                )}
                 {booking.status === 'pending' && (
                   <>
                     <button
@@ -282,9 +319,48 @@ const BookingDetail = () => {
                   </>
                 )}
                 {booking.status === 'completed' && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                    <p className="text-green-800 font-medium">Service Completed</p>
-                    <p className="text-green-600 text-sm mt-1">Thank you for using UsafiLink!</p>
+                  <div className="space-y-4">
+                    {!booking.rating_data ? (
+                      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center shadow-sm">
+                        <p className="text-blue-900 font-black text-sm uppercase tracking-widest mb-4">Rate the Experience</p>
+                        <div className="flex justify-center gap-2 mb-4">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              onClick={() => setRating(star)}
+                              className={`p-1 transition-all ${rating >= star ? 'text-yellow-400 scale-125' : 'text-gray-300 hover:text-yellow-200'}`}
+                            >
+                              <div className="w-8 h-8 flex items-center justify-center font-black text-2xl">★</div>
+                            </button>
+                          ))}
+                        </div>
+                        <textarea
+                          placeholder="Tell us what you loved... (optional)"
+                          className="w-full p-3 bg-white border border-blue-100 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none mb-4 min-h-[80px]"
+                          value={ratingComment}
+                          onChange={(e) => setRatingComment(e.target.value)}
+                        />
+                        <button
+                          onClick={handleRatingSubmit}
+                          disabled={!rating}
+                          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-200"
+                        >
+                          Submit Review
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
+                        <div className="flex justify-center gap-1 mb-2">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <span key={s} className={`text-lg ${booking.rating_data.score >= s ? 'text-yellow-500' : 'text-gray-200'}`}>★</span>
+                          ))}
+                        </div>
+                        <p className="text-green-800 font-black text-sm uppercase">Service Rated</p>
+                        {booking.rating_data.comment && (
+                          <p className="text-green-600 text-xs mt-2 italic">"{booking.rating_data.comment}"</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
                 {booking.status === 'cancelled' && (

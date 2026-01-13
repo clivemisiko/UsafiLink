@@ -64,6 +64,17 @@ class MpesaSTKPushSerializer(serializers.Serializer):
         
         return value
 
+class BankTransferSerializer(serializers.Serializer):
+    booking_id = serializers.IntegerField(required=True)
+    bank_reference = serializers.CharField(required=True, max_length=50)
+
+    def validate_booking_id(self, value):
+        try:
+            Booking.objects.get(id=value)
+        except Booking.DoesNotExist:
+            raise serializers.ValidationError("Booking does not exist.")
+        return value
+
 class TransactionLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = TransactionLog

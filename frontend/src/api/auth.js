@@ -39,5 +39,54 @@ export const authAPI = {
   toggleOnline: async () => {
     const response = await axiosInstance.post('/users/toggle-online/');
     return response.data;
+  },
+
+  deleteAccount: async () => {
+    const response = await axiosInstance.delete('/users/profile/');
+    return response.data;
+  },
+
+  // Email verification
+  verifyEmail: async (token) => {
+    const response = await axiosInstance.get(`/users/verify-email/${token}/`);
+    return response.data;
+  },
+
+  resendVerification: async (email) => {
+    const response = await axiosInstance.post('/users/resend-verification/', {
+      email,
+      frontend_url: window.location.origin
+    });
+    return response.data;
+  },
+
+  changePassword: async (passwords) => {
+    const response = await axiosInstance.post('/users/change-password/', passwords);
+    return response.data;
+  },
+
+  // 2FA
+  setup2FA: async () => {
+    const response = await axiosInstance.get('/users/2fa/setup/');
+    return response.data;
+  },
+
+  verify2FA: async (token) => {
+    const response = await axiosInstance.post('/users/2fa/verify/', { token });
+    return response.data;
+  },
+
+  disable2FA: async (token) => {
+    const response = await axiosInstance.post('/users/2fa/disable/', { token });
+    return response.data;
+  },
+
+  login2FA: async (data) => {
+    const response = await axiosInstance.post('/users/2fa/login/', data);
+    if (response.data.access) {
+      localStorage.setItem('access_token', response.data.access);
+      localStorage.setItem('refresh_token', response.data.refresh);
+    }
+    return response.data;
   }
 };

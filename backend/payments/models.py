@@ -26,6 +26,7 @@ class Payment(models.Model):
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     mpesa_receipt = models.CharField(max_length=50, blank=True, null=True, db_index=True)
+    bank_reference = models.CharField(max_length=50, blank=True, null=True, db_index=True)
     checkout_request_id = models.CharField(max_length=100, blank=True, null=True)
     merchant_request_id = models.CharField(max_length=100, blank=True, null=True)
     payment_method = models.CharField(
@@ -70,6 +71,7 @@ class Payment(models.Model):
         indexes = [
             models.Index(fields=['status', 'created_at']),
             models.Index(fields=['mpesa_receipt']),
+            models.Index(fields=['bank_reference']),
             models.Index(fields=['checkout_request_id']),
         ]
     

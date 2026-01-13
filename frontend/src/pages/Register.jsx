@@ -36,7 +36,14 @@ const Register = () => {
 				role: formData.role,
 				phone_number: formData.phone_number
 			});
-			toast.success('Registration successful! Please log in.');
+			toast.success(
+				<div>
+					<p className="font-bold">Registration successful!</p>
+					<p className="text-sm">Please check your email to verify your account before logging in.</p>
+					<p className="text-xs mt-1 text-blue-600 italic">Didn't get the email? Check your spam folder.</p>
+				</div>,
+				{ duration: 8000 }
+			);
 			navigate('/login');
 		} catch (error) {
 			toast.error(

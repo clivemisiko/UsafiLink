@@ -92,3 +92,28 @@ def send_daily_reminders():
     except Exception as e:
         logger.error(f"Daily reminders task failed: {str(e)}")
         return {"success": False, "error": str(e)}
+
+@shared_task
+def notify_admins_bank_payment_task(payment_id):
+    """Notify all admins about a new bank transfer submission"""
+    from users.models import User
+    try:
+        payment = Payment.objects.get(id=payment_id)
+        admins = User.objects.filter(role='admin', is_active=True)
+        
+        message = (
+            f"ALERT: New Bank Transfer Submission!\n"
+            f"Amount: KES {payment.amount}\n"
+            f"Ref: {payment.bank_reference}\n"
+            f"Booking: #{payment.booking.id}\n"
+            f"Please verify in Admin Dashboard."
+        )
+        
+        for admin in admins:
+            if admin.phone_number:
+                send_sms_task.delay(admin.phone_number, message)
+                
+        return {"success": True, "notified": admins.count()}
+    except Exception as e:
+        logger.error(f"Notify admins task failed: {str(e)}")
+        return {"success": False, "error": str(e)}

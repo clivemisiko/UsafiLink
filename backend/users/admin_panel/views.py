@@ -58,9 +58,15 @@ class AdminDashboardView(APIView):
         
         # Driver stats
         active_drivers = User.objects.filter(role='driver', is_active=True).count()
+        online_drivers = User.objects.filter(role='driver', is_online=True).count()
         
         # Dispute stats
         pending_disputes = Dispute.objects.filter(status='pending').count()
+
+        # Rating stats
+        from bookings.models import Rating
+        from django.db.models import Avg
+        avg_rating = Rating.objects.aggregate(Avg('score'))['score__avg'] or 0.0
         
         # Recent activities
         recent_logs = SystemLog.objects.select_related('user').order_by('-created_at')[:10]
@@ -71,7 +77,9 @@ class AdminDashboardView(APIView):
                 'total_bookings': total_bookings,
                 'total_revenue': float(total_revenue),
                 'active_drivers': active_drivers,
+                'online_drivers': online_drivers,
                 'pending_disputes': pending_disputes,
+                'avg_rating': round(float(avg_rating), 1),
             },
             'today': {
                 'new_users': new_users_today,

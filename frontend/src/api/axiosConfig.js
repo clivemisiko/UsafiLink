@@ -6,7 +6,7 @@ const getBaseUrl = () => {
   return url.endsWith('/') ? url : `${url}/`;
 };
 
-const API_BASE_URL = getBaseUrl();
+export const API_BASE_URL = getBaseUrl();
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,

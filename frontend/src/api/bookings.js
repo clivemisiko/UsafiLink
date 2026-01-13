@@ -79,5 +79,11 @@ export const bookingsAPI = {
   getStats: async () => {
     const response = await axiosInstance.get('/bookings/bookings/stats/');
     return response.data;
+  },
+
+  // Rate booking
+  rateBooking: async (id, ratingData) => {
+    const response = await axiosInstance.post(`/bookings/bookings/${id}/rate/`, ratingData);
+    return response.data;
   }
 };

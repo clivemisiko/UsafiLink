@@ -9,7 +9,7 @@ import LocationPicker from './LocationPicker';
 
 const bookingSchema = z.object({
   location_name: z.string().min(3, 'Location name is required'),
-  address: z.string().min(5, 'Address is required'),
+  address: z.string().min(3, 'Address is required').trim(),
   service_type: z.enum(['septic', 'pit_latrine', 'grease_trap', 'other']),
   tank_size: z.enum(['1000', '2000', '3000', '5000', '10000']),
   scheduled_date: z.string().min(1, 'Date is required'),
