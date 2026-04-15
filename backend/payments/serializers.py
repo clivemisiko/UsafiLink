@@ -5,7 +5,7 @@ from bookings.models import Booking
 class PaymentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
-        fields = ['booking', 'amount', 'payment_method', 'mpesa_receipt']
+        fields = ['booking', 'amount', 'payment_method', 'mpesa_receipt', 'bank_reference', 'notes']
         read_only_fields = ['status', 'created_at']
 
 class PaymentUpdateSerializer(serializers.ModelSerializer):
@@ -24,15 +24,25 @@ class PaymentSerializer(serializers.ModelSerializer):
         read_only_fields = ('status', 'created_at', 'updated_at')
     
     def get_booking_details(self, obj):
-        return {
-            'id': obj.booking.id,
-            'location': obj.booking.location_name,
-            'scheduled_date': obj.booking.scheduled_date,
-            'service_type': obj.booking.service_type
-        }
+        if not obj.booking:
+            return None
+        try:
+            return {
+                'id': obj.booking.id,
+                'location': obj.booking.location_name,
+                'scheduled_date': obj.booking.scheduled_date,
+                'service_type': obj.booking.service_type
+            }
+        except Exception:
+            return None
     
     def get_customer_name(self, obj):
-        return obj.booking.customer.get_full_name() or obj.booking.customer.username
+        if not obj.booking:
+            return None
+        try:
+            return obj.booking.customer.get_full_name() or obj.booking.customer.username
+        except Exception:
+            return None
 
 class MpesaSTKPushSerializer(serializers.Serializer):
     booking_id = serializers.IntegerField(required=True)

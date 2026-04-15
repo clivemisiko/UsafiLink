@@ -10,7 +10,6 @@ import {
   Menu,
   X,
   ChevronRight,
-  Activity,
   CreditCard,
   Truck,
   Search
@@ -29,6 +28,7 @@ const AdminLayout = () => {
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
     { icon: Users, label: 'Users', path: '/admin/users' },
+    { icon: Truck, label: 'Vehicles', path: '/admin/vehicles' },
     { icon: Truck, label: 'Drivers', path: '/admin/drivers' },
     { icon: Calendar, label: 'Bookings', path: '/admin/bookings' },
     { icon: CreditCard, label: 'Payments', path: '/admin/payments' },
@@ -47,12 +47,10 @@ const AdminLayout = () => {
           }`}
       >
         <div className="p-6 flex items-center gap-3">
-          <div className="bg-blue-600 p-2 rounded-lg shrink-0">
-            <Activity className="w-6 h-6 text-white" />
-          </div>
+          <img src="/logo.png" alt="UsafiLink Logo" className="w-8 h-8 shrink-0" />
           {sidebarOpen && (
             <span className="text-xl font-bold tracking-tight whitespace-nowrap">
-              UsafiLink<span className="text-blue-400">Admin</span>
+              UsafiLink<span className="text-emerald-400">Admin</span>
             </span>
           )}
         </div>
@@ -67,7 +65,7 @@ const AdminLayout = () => {
                 setSidebarOpen(false);
               }}
               className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${isActive(item.path)
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/40'
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
                 }`}
             >
@@ -111,15 +109,15 @@ const AdminLayout = () => {
               <input
                 type="text"
                 placeholder="Search..."
-                className="pl-10 pr-4 py-2 bg-gray-100 border-none rounded-full text-sm w-48 lg:w-64 focus:ring-2 focus:ring-blue-500/20"
+                className="pl-10 pr-4 py-2 bg-gray-100 border-none rounded-full text-sm w-48 lg:w-64 focus:ring-2 focus:ring-emerald-500/20"
               />
             </div>
             <div className="flex items-center gap-3 border-l pl-4 lg:pl-6">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-gray-800">Admin Panel</p>
-                <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Super Admin</p>
+                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Super Admin</p>
               </div>
-              <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
+              <div className="w-10 h-10 bg-gradient-to-tr from-emerald-600 to-teal-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
                 AD
               </div>
             </div>

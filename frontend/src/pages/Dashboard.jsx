@@ -39,7 +39,26 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+
+    // Check if there's a pending booking from the landing page
+    const pendingBooking = localStorage.getItem('pendingBooking');
+    if (pendingBooking) {
+      try {
+        const bookingData = JSON.parse(pendingBooking);
+        // Clear it from storage
+        localStorage.removeItem('pendingBooking');
+        // Redirect to booking page with the data
+        navigate('/bookings/new', {
+          state: {
+            tankSize: bookingData.tankSize,
+            location: bookingData.location
+          }
+        });
+      } catch (error) {
+        console.error('Error parsing pending booking:', error);
+      }
+    }
+  }, [navigate]);
 
   const fetchDashboardData = async () => {
     try {
@@ -78,7 +97,7 @@ const Dashboard = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800';
-      case 'accepted': return 'bg-blue-100 text-blue-800';
+      case 'accepted': return 'bg-emerald-100 text-emerald-800';
       case 'pending':
       case 'payment_pending': return 'bg-yellow-100 text-yellow-800';
       case 'cancelled': return 'bg-red-100 text-red-800';
@@ -103,7 +122,7 @@ const Dashboard = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
       </div>
     );
   }
@@ -123,13 +142,13 @@ const Dashboard = () => {
           <div className="mt-8 flex gap-6 border-b border-gray-100">
             <button
               onClick={() => setActiveView('overview')}
-              className={`pb-4 px-2 font-bold text-sm transition-all border-b-2 ${activeView === 'overview' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+              className={`pb-4 px-2 font-bold text-sm transition-all border-b-2 ${activeView === 'overview' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
             >
               Dashboard Overview
             </button>
             <button
               onClick={() => setActiveView('profile')}
-              className={`pb-4 px-2 font-bold text-sm transition-all border-b-2 ${activeView === 'profile' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+              className={`pb-4 px-2 font-bold text-sm transition-all border-b-2 ${activeView === 'profile' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
             >
               Profile & Account
             </button>
@@ -144,7 +163,7 @@ const Dashboard = () => {
       ) : (
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-500">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
+            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-emerald-500">
               <p className="text-gray-500 text-sm font-medium">Total Bookings</p>
               <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
             </div>
@@ -163,7 +182,7 @@ const Dashboard = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link to="/bookings/new" className="bg-blue-600 text-white p-4 rounded-lg shadow hover:bg-blue-700 transition flex items-center justify-center gap-2 font-semibold ring-offset-2 focus:ring-2 focus:ring-blue-500">
+            <Link to="/bookings/new" className="bg-emerald-600 text-white p-4 rounded-lg shadow hover:bg-emerald-700 transition flex items-center justify-center gap-2 font-semibold ring-offset-2 focus:ring-2 focus:ring-emerald-500">
               <Plus className="w-5 h-5" /> Book Now
             </Link>
             <Link to="/bookings" className="bg-white text-gray-700 p-4 rounded-lg shadow hover:bg-gray-50 transition flex items-center justify-center gap-2 font-semibold border border-gray-200">
@@ -179,7 +198,7 @@ const Dashboard = () => {
               <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100">
                 <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                   <h3 className="text-lg font-bold text-gray-900">Recent Bookings</h3>
-                  <Link to="/bookings" className="text-blue-600 hover:text-blue-800 text-sm font-semibold">View All</Link>
+                  <Link to="/bookings" className="text-emerald-600 hover:text-emerald-800 text-sm font-semibold">View All</Link>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
@@ -194,7 +213,7 @@ const Dashboard = () => {
                     <tbody className="bg-white divide-y divide-gray-100">
                       {recentBookings.length > 0 ? (
                         recentBookings.map((booking) => (
-                          <tr key={booking.id} className="hover:bg-gray-50/50 transition-colors">
+                          <tr key={booking.id} onClick={() => navigate(`/bookings/${booking.id}`)} className="hover:bg-emerald-50 transition-colors cursor-pointer">
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{formatDate(booking.scheduled_date)}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{booking.service_type?.replace('_', ' ') || 'Service'}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -228,8 +247,8 @@ const Dashboard = () => {
                   <ul className="space-y-4">
                     {upcomingBookings.map(booking => (
                       <li key={booking.id} className="flex items-start gap-4 pb-4 border-b border-gray-50 last:border-0 last:pb-0">
-                        <div className="bg-blue-50 p-2.5 rounded-xl">
-                          <Clock className="w-5 h-5 text-blue-600" />
+                        <div className="bg-emerald-50 p-2.5 rounded-xl">
+                          <Clock className="w-5 h-5 text-emerald-600" />
                         </div>
                         <div>
                           <p className="font-bold text-gray-900">{formatDate(booking.scheduled_date)}</p>

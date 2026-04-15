@@ -1,6 +1,8 @@
 import requests
+import time
 from django.conf import settings
 from requests.auth import HTTPBasicAuth
+from requests.exceptions import ConnectionError, Timeout
 import base64
 import datetime
 import logging
@@ -28,34 +30,54 @@ class MpesaService:
             logger.warning(f"M-PESA credentials missing or placeholder. Switching to MOCK mode.")
             self.env = 'mock'
     
+    def _request_with_retry(self, method, url, max_retries=3, **kwargs):
+        """
+        Make an HTTP request with automatic retry on connection failures.
+        Safaricom sandbox is known to drop connections intermittently.
+        """
+        last_exc = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = getattr(requests, method)(url, **kwargs)
+                return response
+            except (ConnectionError, Timeout) as e:
+                last_exc = e
+                wait = 2 ** attempt  # 2s, 4s, 8s
+                logger.warning(
+                    f"M-PESA request to {url} failed on attempt {attempt}/{max_retries} "
+                    f"({type(e).__name__}: {e}). Retrying in {wait}s..."
+                )
+                if attempt < max_retries:
+                    time.sleep(wait)
+        # All retries exhausted
+        logger.error(f"M-PESA request to {url} failed after {max_retries} attempts: {last_exc}")
+        raise Exception(
+            "Unable to reach Safaricom servers after multiple attempts. "
+            "This is usually a temporary issue with the Safaricom sandbox. "
+            "Please try again in a few minutes."
+        )
+
     def get_access_token(self):
         """Get OAuth access token from M-PESA."""
         if self.env == 'mock':
             return "mock_access_token_12345"
 
-        # Match exact URL format from successful local test
         url = f"{self.base_url}/oauth/v1/generate?grant_type=client_credentials"
-        
-        # Diagnostic: Log parts of keys to verify they are loaded correctly
         key_diag = f"{self.consumer_key[:3]}...{self.consumer_key[-3:]}" if len(self.consumer_key) > 6 else "INVALID"
-        
         logger.info(f"M-PESA Auth Attempt: ENV={self.env}, URL={url}, KeyDiag={key_diag}")
 
         try:
-            # Use simple requests call to match local test exactly
-            response = requests.get(
-                url, 
+            response = self._request_with_retry(
+                'get', url,
                 auth=(self.consumer_key, self.consumer_secret),
                 timeout=30
             )
-            
             if response.status_code != 200:
                 logger.error(f"M-PESA Auth Error: {response.status_code} - Body: {response.text}")
-                raise Exception(f"Safaricom Auth Failed (HTTP {response.status_code}). Please verify your Consumer Key and Secret in Render.")
-                
+                raise Exception(f"Safaricom Auth Failed (HTTP {response.status_code}).")
             return response.json()['access_token']
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error during M-PESA Auth: {str(e)}")
+        except Exception as e:
+            logger.error(f"M-PESA Auth error: {str(e)}")
             raise
     
     def stk_push(self, phone_number, amount, account_reference, transaction_desc):
@@ -102,11 +124,14 @@ class MpesaService:
         }
         
         url = f"{self.base_url}/mpesa/stkpush/v1/processrequest"
-        
+
         try:
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            response = self._request_with_retry(
+                'post', url,
+                json=payload, headers=headers, timeout=30
+            )
             return response.json()
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             logger.error(f"STK Push Request error: {str(e)}")
             raise
     

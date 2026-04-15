@@ -34,43 +34,75 @@ class SMSService:
             logger.warning("SMS service not configured, SMS would be: %s", message)
             return {"success": False, "message": "SMS service not configured"}
         
-        # Format phone number for Kenya
+        # Format phone number to E.164 for Kenya (+2547XXXXXXXX)
+        # Africa's Talking commonly expects the leading '+'.
+        phone_number = (phone_number or "").strip()
         if phone_number.startswith('0'):
-            phone_number = '254' + phone_number[1:]
+            phone_number = '+254' + phone_number[1:]
+        elif phone_number.startswith('254'):
+            phone_number = '+' + phone_number
         elif phone_number.startswith('+254'):
-            phone_number = phone_number[1:]
-        elif not phone_number.startswith('254'):
-            phone_number = '254' + phone_number
+            pass
+        else:
+            # If user entered a local 7XXXXXXXX form, normalize to +2547XXXXXXXX
+            if phone_number.startswith('7') and len(phone_number) in (9, 10):
+                phone_number = '+254' + phone_number
+            else:
+                phone_number = '+254' + phone_number.lstrip('+')
         
         try:
-            # Prepare SMS parameters
-            params = {
-                'to': [phone_number],
-                'message': message
-            }
-            
-            # Add sender ID if available
+            # Africa's Talking SDK expects `sender_id` (or `from_`) depending on version.
+            # Try with sender_id first, but fall back to no sender_id if it fails with InvalidSenderId
             if self.sender_id:
-                params['from_'] = self.sender_id
-            
-            # Send SMS
-            response = self.sms.send(**params)
+                try:
+                    response = self.sms.send(message, [phone_number], self.sender_id)
+                except (TypeError, Exception) as e:
+                    error_str = str(e).lower()
+                    # If invalid sender ID, try without it
+                    if 'invalidsenderid' in error_str or 'invalid sender' in error_str:
+                        logger.warning(f"Sender ID '{self.sender_id}' is invalid, sending without it: {str(e)}")
+                        response = self.sms.send(message, [phone_number])
+                    else:
+                        # Try alternative parameter formats
+                        try:
+                            response = self.sms.send(message, [phone_number], sender_id=self.sender_id)
+                        except TypeError:
+                            try:
+                                response = self.sms.send(message, [phone_number], from_=self.sender_id)
+                            except TypeError:
+                                # Last resort: no sender_id
+                                response = self.sms.send(message, [phone_number])
+            else:
+                response = self.sms.send(message, [phone_number])
             
             logger.info(f"SMS sent to {phone_number}: {response}")
             
+            # Extract data safely to avoid IndexError
+            sms_data = response.get('SMSMessageData', {})
+            recipients = sms_data.get('Recipients', [])
+            
+            if not recipients:
+                error_msg = sms_data.get('Message', 'No recipients returned by provider')
+                return {
+                    "success": False,
+                    "message": f"Failed to send SMS: {error_msg}",
+                    "error": error_msg
+                }
+                
             # Check if SMS was sent successfully
-            if response['SMSMessageData']['Recipients'][0]['status'] == 'Success':
+            recipient_data = recipients[0]
+            if recipient_data.get('status') == 'Success':
                 return {
                     "success": True,
                     "message": "SMS sent successfully",
-                    "cost": response['SMSMessageData']['Recipients'][0]['cost'],
-                    "message_id": response['SMSMessageData']['Recipients'][0]['messageId']
+                    "cost": recipient_data.get('cost', ''),
+                    "message_id": recipient_data.get('messageId', '')
                 }
             else:
                 return {
                     "success": False,
                     "message": "Failed to send SMS",
-                    "error": response['SMSMessageData']['Recipients'][0]['status']
+                    "error": recipient_data.get('status', 'Unknown error')
                 }
                 
         except Exception as e:

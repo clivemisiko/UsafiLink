@@ -65,6 +65,24 @@ export const authAPI = {
     return response.data;
   },
 
+  // Forgot / Reset password
+  forgotPassword: async ({ email }) => {
+    const response = await axiosInstance.post('/users/forgot-password/', {
+      email,
+      frontend_url: window.location.origin,
+    });
+    return response.data;
+  },
+
+  resetPassword: async ({ token, new_password, confirm_password }) => {
+    const response = await axiosInstance.post('/users/reset-password/', {
+      token,
+      new_password,
+      confirm_password,
+    });
+    return response.data;
+  },
+
   // 2FA
   setup2FA: async () => {
     const response = await axiosInstance.get('/users/2fa/setup/');

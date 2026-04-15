@@ -69,7 +69,7 @@ const TwoFactorModal = ({ isOpen, onClose, isEnabled, onStatusChange }) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-all animate-fadeIn">
             <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100 flex flex-col animate-scaleIn">
                 {/* Header */}
-                <div className={`p-6 border-b border-gray-50 flex items-center justify-between bg-gradient-to-r ${isEnabled ? 'from-green-600 to-teal-600' : 'from-blue-600 to-indigo-600'}`}>
+                <div className={`p-6 border-b border-gray-50 flex items-center justify-between bg-gradient-to-r ${isEnabled ? 'from-green-600 to-teal-600' : 'from-emerald-600 to-teal-600'}`}>
                     <div className="flex items-center text-white">
                         <Shield className="w-5 h-5 mr-3" />
                         <h2 className="text-xl font-bold">Two-Factor Auth</h2>
@@ -86,8 +86,8 @@ const TwoFactorModal = ({ isOpen, onClose, isEnabled, onStatusChange }) => {
                     {/* Initial States */}
                     {step === 'initial_disabled' && (
                         <div className="text-center space-y-6">
-                            <div className="bg-blue-50 p-6 rounded-full inline-flex">
-                                <Shield className="w-12 h-12 text-blue-600" />
+                            <div className="bg-emerald-50 p-6 rounded-full inline-flex">
+                                <Shield className="w-12 h-12 text-emerald-600" />
                             </div>
                             <div>
                                 <h3 className="text-xl font-bold text-gray-900">Secure Your Account</h3>
@@ -99,7 +99,7 @@ const TwoFactorModal = ({ isOpen, onClose, isEnabled, onStatusChange }) => {
                             <button
                                 onClick={handleStartSetup}
                                 disabled={loading}
-                                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2"
+                                className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2"
                             >
                                 {loading ? <Loader className="w-5 h-5 animate-spin" /> : 'Get Started'}
                             </button>
@@ -147,7 +147,7 @@ const TwoFactorModal = ({ isOpen, onClose, isEnabled, onStatusChange }) => {
 
                             <button
                                 onClick={() => setStep('verify')}
-                                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all"
+                                className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all"
                             >
                                 I've scanned the code
                             </button>
@@ -168,7 +168,7 @@ const TwoFactorModal = ({ isOpen, onClose, isEnabled, onStatusChange }) => {
 
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <Key className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                                    <Key className="h-5 w-5 text-gray-400 group-focus-within:text-emerald-500 transition-colors" />
                                 </div>
                                 <input
                                     type="text"
@@ -176,7 +176,7 @@ const TwoFactorModal = ({ isOpen, onClose, isEnabled, onStatusChange }) => {
                                     maxLength="6"
                                     value={token}
                                     onChange={(e) => setToken(e.target.value.replace(/\D/g, ''))}
-                                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all sm:text-2xl font-bold tracking-[0.5em] text-center"
+                                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all sm:text-2xl font-bold tracking-[0.5em] text-center"
                                     placeholder="000000"
                                 />
                             </div>
@@ -192,7 +192,7 @@ const TwoFactorModal = ({ isOpen, onClose, isEnabled, onStatusChange }) => {
                                 <button
                                     type="submit"
                                     disabled={loading || token.length !== 6}
-                                    className={`flex-2 py-4 px-8 ${step === 'verify' ? 'bg-blue-600' : 'bg-red-600'} text-white rounded-2xl font-bold hover:opacity-90 shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2`}
+                                    className={`flex-2 py-4 px-8 ${step === 'verify' ? 'bg-emerald-600' : 'bg-red-600'} text-white rounded-2xl font-bold hover:opacity-90 shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2`}
                                 >
                                     {loading ? (
                                         <Loader className="w-5 h-5 animate-spin" />

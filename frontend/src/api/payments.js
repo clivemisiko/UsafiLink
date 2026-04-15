@@ -19,6 +19,15 @@ export const paymentsAPI = {
     return response.data;
   },
 
+  // Initiate Cash Payment
+  initiateCashPayment: async (paymentData) => {
+    const response = await axiosInstance.post(
+      '/payments/payments/initiate_cash_payment/',
+      paymentData
+    );
+    return response.data;
+  },
+
   // Get all payments (Admin/Staff)
   getPayments: async (params = {}) => {
     const response = await axiosInstance.get('/payments/payments/', { params });

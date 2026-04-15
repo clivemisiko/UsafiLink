@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { adminAPI } from '../../api/admin';
 import toast from 'react-hot-toast';
+import { exportToCSV } from '../../utils/csvExport';
 
 const AdminLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -55,7 +56,7 @@ const AdminLogs = () => {
     if (act.includes('create') || act.includes('success') || act.includes('add'))
       return 'bg-green-50 text-green-600 border-green-100 ring-4 ring-green-50/50';
     if (act.includes('update') || act.includes('edit') || act.includes('change'))
-      return 'bg-blue-50 text-blue-600 border-blue-100 ring-4 ring-blue-50/50';
+      return 'bg-emerald-50 text-emerald-600 border-emerald-100 ring-4 ring-emerald-50/50';
     return 'bg-slate-50 text-slate-600 border-slate-100 ring-4 ring-slate-50/50';
   };
 
@@ -68,10 +69,24 @@ const AdminLogs = () => {
     return matchesSearch && matchesAction;
   });
 
+  const handleExport = () => {
+    if (filteredLogs.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
+    // Prepare details for export by stringifying them if they are objects
+    const exportData = filteredLogs.map(log => ({
+      ...log,
+      details: typeof log.details === 'object' ? JSON.stringify(log.details) : log.details
+    }));
+    exportToCSV(exportData, 'usafilink_audit_logs');
+    toast.success("Exporting audit logs CSV...");
+  };
+
   if (loading && logs.length === 0) {
     return (
       <div className="h-96 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
       </div>
     );
   }
@@ -83,18 +98,21 @@ const AdminLogs = () => {
         <div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
             System Infrastructure Logs
-            <Database className="w-8 h-8 text-blue-600 opacity-20" />
+            <Database className="w-8 h-8 text-emerald-600 opacity-20" />
           </h1>
           <p className="text-gray-500 font-medium mt-1">Immutable audit trail of all platform administrative actions</p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={fetchLogs}
-            className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all"
+            className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-xl shadow-slate-200">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all shadow-xl shadow-slate-200"
+          >
             <Download className="w-5 h-5" />
             <span>Export CSV</span>
           </button>
@@ -105,7 +123,7 @@ const AdminLogs = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-[2rem] border border-gray-50 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="bg-blue-50 p-3 rounded-2xl text-blue-600">
+            <div className="bg-emerald-50 p-3 rounded-2xl text-emerald-600">
               <Activity className="w-6 h-6" />
             </div>
             <div>
@@ -138,7 +156,7 @@ const AdminLogs = () => {
         </div>
         <div className="bg-white p-6 rounded-[2rem] border border-gray-50 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="bg-indigo-50 p-3 rounded-2xl text-indigo-600">
+            <div className="bg-teal-50 p-3 rounded-2xl text-teal-600">
               <Clock className="w-6 h-6" />
             </div>
             <div>
@@ -156,7 +174,7 @@ const AdminLogs = () => {
           <input
             type="text"
             placeholder="Search by admin, action, or details..."
-            className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500/10"
+            className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-emerald-500/10"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -166,7 +184,7 @@ const AdminLogs = () => {
             <button
               key={a}
               onClick={() => setActionFilter(a)}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${actionFilter === a ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${actionFilter === a ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
                 }`}
             >
               {a}
@@ -190,7 +208,7 @@ const AdminLogs = () => {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-blue-50/5 transition-colors group">
+                <tr key={log.id} className="hover:bg-emerald-50/5 transition-colors group">
                   <td className="px-8 py-5 whitespace-nowrap">
                     <div className="text-xs font-black text-gray-800">{formatDate(log.created_at).split(',')[0]}</div>
                     <div className="text-[10px] font-bold text-gray-400">{formatDate(log.created_at).split(', 1')[1] || formatDate(log.created_at).split(',')[1]}</div>
@@ -202,7 +220,7 @@ const AdminLogs = () => {
                       </div>
                       <div>
                         <div className="text-xs font-black text-gray-900">{log.user_name || 'System Engine'}</div>
-                        <div className="text-[10px] font-bold text-blue-600 uppercase tracking-tighter">{log.user_role || 'Automation'}</div>
+                        <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-tighter">{log.user_role || 'Automation'}</div>
                       </div>
                     </div>
                   </td>

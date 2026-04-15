@@ -305,6 +305,101 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def initiate_cash_payment(self, request):
+        """
+        Initiate a cash payment for a booking.
+        """
+        booking_id = request.data.get('booking_id')
+        notes = request.data.get('notes', '')
+        
+        if not booking_id:
+            return Response(
+                {'detail': 'booking_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            with transaction.atomic():
+                # Get booking
+                booking = Booking.objects.select_for_update().get(
+                    id=booking_id,
+                    customer=request.user
+                )
+                
+                # Validate booking can be paid
+                if booking.status == 'cancelled':
+                    return Response(
+                        {'detail': 'Cannot pay for a cancelled booking.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Check if payment already exists and is paid
+                existing_payment = getattr(booking, 'payment', None)
+                if existing_payment and existing_payment.status == 'paid':
+                    return Response(
+                        {'detail': 'Booking already has a paid payment.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Get amount from booking
+                amount = booking.estimated_price
+                if amount <= 0:
+                    return Response(
+                        {'detail': 'Invalid booking amount.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Create or update payment record for cash
+                payment_data = {
+                    'booking': booking,
+                    'amount': amount,
+                    'status': 'pending',
+                    'payment_method': 'cash',
+                    'notes': notes
+                }
+                
+                if existing_payment:
+                    # Update existing pending payment
+                    for key, value in payment_data.items():
+                        setattr(existing_payment, key, value)
+                    existing_payment.save()
+                    payment = existing_payment
+                else:
+                    # Create new payment
+                    payment = Payment.objects.create(**payment_data)
+                
+                # Log the transaction
+                TransactionLog.objects.create(
+                    payment=payment,
+                    action='cash_payment_initiated',
+                    data={'notes': notes},
+                    status='success'
+                )
+                
+                # Update booking status
+                if booking.status == 'pending':
+                    booking.status = 'payment_pending'
+                    booking.save()
+                
+                return Response({
+                    'success': True,
+                    'message': 'Cash payment recorded. Driver will collect payment upon service completion.',
+                    'payment_id': payment.id
+                }, status=status.HTTP_200_OK)
+        
+        except Booking.DoesNotExist:
+            return Response(
+                {'detail': 'Booking not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Cash payment initiation error: {str(e)}")
+            return Response(
+                {'detail': 'An error occurred while processing your cash payment request.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def retry_payment(self, request, pk=None):
         """
@@ -569,12 +664,17 @@ class PaymentViewSet(viewsets.ModelViewSet):
         """
         return HttpResponse(html_content)
     
-    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def manual_verify(self, request):
         """
         Admin endpoint to manually verify a payment.
         Useful for cash payments or resolving issues.
         """
+        if not (getattr(request.user, 'role', None) == 'admin' or request.user.is_staff or request.user.is_superuser):
+            return Response(
+                {'detail': 'Only admins can verify payments.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         payment_id = request.data.get('payment_id')
         mpesa_receipt = request.data.get('mpesa_receipt')
         bank_reference = request.data.get('bank_reference')

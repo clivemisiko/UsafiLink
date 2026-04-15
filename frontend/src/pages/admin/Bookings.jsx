@@ -27,6 +27,7 @@ import {
 import { adminAPI } from '../../api/admin';
 import { bookingsAPI } from '../../api/bookings';
 import toast from 'react-hot-toast';
+import { exportToCSV } from '../../utils/csvExport';
 
 const AdminBookings = () => {
   const navigate = useNavigate();
@@ -100,7 +101,7 @@ const AdminBookings = () => {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'completed': return 'bg-green-50 text-green-700 border-green-100 ring-4 ring-green-50/50';
-      case 'accepted': return 'bg-blue-50 text-blue-700 border-blue-100 ring-4 ring-blue-50/50';
+      case 'accepted': return 'bg-emerald-50 text-emerald-700 border-emerald-100 ring-4 ring-emerald-50/50';
       case 'pending': return 'bg-yellow-50 text-yellow-700 border-yellow-100 ring-4 ring-yellow-50/50';
       case 'payment_pending': return 'bg-orange-50 text-orange-700 border-orange-100 ring-4 ring-orange-50/50';
       case 'cancelled': return 'bg-red-50 text-red-700 border-red-100 ring-4 ring-red-50/50';
@@ -117,6 +118,15 @@ const AdminBookings = () => {
     return matchesStatus && matchesSearch;
   });
 
+  const handleExport = () => {
+    if (filteredBookings.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
+    exportToCSV(filteredBookings, 'usafilink_bookings');
+    toast.success("Exporting bookings CSV...");
+  };
+
   const stats = {
     total: bookings.length,
     pending: bookings.filter(b => b.status === 'pending' || b.status === 'payment_pending').length,
@@ -127,7 +137,7 @@ const AdminBookings = () => {
   if (loading && bookings.length === 0) {
     return (
       <div className="h-96 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
       </div>
     );
   }
@@ -143,11 +153,14 @@ const AdminBookings = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={fetchBookings}
-            className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all"
+            className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
-          <button className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold hover:bg-blue-600 transition-all shadow-xl shadow-slate-200">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all shadow-xl shadow-slate-200"
+          >
             <Download className="w-5 h-5" />
             <span>Export Registry</span>
           </button>
@@ -183,7 +196,7 @@ const AdminBookings = () => {
           <input
             type="text"
             placeholder="Search booking ID, customer or location..."
-            className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500/10 placeholder:text-gray-400"
+            className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border-none rounded-2xl text-sm font-medium focus:ring-2 focus:ring-emerald-500/10 placeholder:text-gray-400"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -193,7 +206,7 @@ const AdminBookings = () => {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === s ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === s ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
                 }`}
             >
               {s.replace('_', ' ')}
@@ -219,15 +232,15 @@ const AdminBookings = () => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filteredBookings.map((b) => (
-                  <tr key={b.id} className="hover:bg-blue-50/10 transition-colors group">
+                  <tr key={b.id} className="hover:bg-emerald-50/10 transition-colors group">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gray-100 rounded-2xl flex flex-col items-center justify-center border border-gray-200 group-hover:bg-blue-600 group-hover:border-blue-500 group-hover:text-white transition-all">
+                        <div className="w-12 h-12 bg-gray-100 rounded-2xl flex flex-col items-center justify-center border border-gray-200 group-hover:bg-emerald-600 group-hover:border-emerald-500 group-hover:text-white transition-all">
                           <Navigation className="w-4 h-4 mb-0.5 opacity-50 group-hover:opacity-100" />
                           <span className="text-[10px] font-black">#{b.id}</span>
                         </div>
                         <div>
-                          <div className="text-sm font-black text-gray-900 group-hover:text-blue-600 transition-colors capitalize">
+                          <div className="text-sm font-black text-gray-900 group-hover:text-emerald-600 transition-colors capitalize">
                             {b.service_type?.replace('_', ' ')}
                           </div>
                           <div className="text-[10px] text-gray-400 font-bold flex items-center gap-1 mt-0.5">
@@ -250,7 +263,7 @@ const AdminBookings = () => {
                     </td>
                     <td className="px-8 py-5">
                       {b.driver_name && b.driver_name !== 'Not Assigned' ? (
-                        <div className="flex items-center gap-3 text-blue-600">
+                        <div className="flex items-center gap-3 text-emerald-600">
                           <Truck className="w-4 h-4" />
                           <div className="text-xs font-bold">{b.driver_name}</div>
                         </div>
@@ -275,7 +288,7 @@ const AdminBookings = () => {
                       <div className="relative flex items-center justify-end gap-2">
                         <button
                           onClick={() => navigate(`/bookings/${b.id}`)}
-                          className="p-2.5 bg-gray-50 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-xl transition-all"
+                          className="p-2.5 bg-gray-50 hover:bg-emerald-50 text-gray-400 hover:text-emerald-600 rounded-xl transition-all"
                           title="View Details"
                         >
                           <Eye className="w-4 h-4" />
@@ -294,7 +307,7 @@ const AdminBookings = () => {
                                   setShowAssignModal(b.id);
                                   setShowActions(null);
                                 }}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-all"
+                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl transition-all"
                               >
                                 <UserCheck className="w-4 h-4" /> Assign Agent
                               </button>
@@ -309,7 +322,7 @@ const AdminBookings = () => {
                               )}
                               <button
                                 onClick={() => navigate(`/bookings/${b.id}`)}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
                               >
                                 <ArrowUpRight className="w-4 h-4" /> Track Service
                               </button>
@@ -355,14 +368,14 @@ const AdminBookings = () => {
                 <button
                   key={driver.id}
                   onClick={() => handleAssignDriver(showAssignModal, driver.id)}
-                  className="w-full flex items-center gap-4 p-4 bg-gray-50 hover:bg-blue-600 group rounded-2xl transition-all border border-transparent hover:border-blue-500 shadow-sm"
+                  className="w-full flex items-center gap-4 p-4 bg-gray-50 hover:bg-emerald-600 group rounded-2xl transition-all border border-transparent hover:border-emerald-500 shadow-sm"
                 >
-                  <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black transition-all group-hover:bg-white group-hover:text-blue-600">
+                  <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black transition-all group-hover:bg-white group-hover:text-emerald-600">
                     {driver.username.charAt(0).toUpperCase()}
                   </div>
                   <div className="text-left">
                     <div className="text-sm font-black text-gray-900 group-hover:text-white">{driver.first_name ? `${driver.first_name} ${driver.last_name}` : driver.username}</div>
-                    <div className="text-[10px] font-bold text-gray-400 group-hover:text-blue-200 uppercase tracking-widest">@{driver.username} • {driver.id}</div>
+                    <div className="text-[10px] font-bold text-gray-400 group-hover:text-emerald-200 uppercase tracking-widest">@{driver.username} • {driver.id}</div>
                   </div>
                   <ChevronRight className="w-5 h-5 ml-auto text-gray-300 group-hover:text-white" />
                 </button>

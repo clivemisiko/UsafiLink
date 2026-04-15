@@ -2,9 +2,9 @@ import pyotp
 import qrcode
 import io
 import base64
+import threading
 from rest_framework import generics, serializers
 from rest_framework.permissions import AllowAny
-from .serializers import RegisterSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework.response import Response
@@ -12,10 +12,11 @@ from rest_framework import status, permissions
 from rest_framework.views import APIView
 from .serializers import RegisterSerializer, UserSerializer
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
-from .email_utils import send_verification_email, send_welcome_email
+from .email_utils import send_verification_email, send_welcome_email, send_password_reset_email
 
 User = get_user_model()
 
@@ -25,30 +26,36 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         username = attrs.get(self.username_field)
         password = attrs.get('password')
         
-        try:
-            user = User.objects.get(username=username)
-            if user.check_password(password):
-                # Check if email is verified
-                if not user.is_email_verified:
-                    raise serializers.ValidationError({
-                        'detail': 'Email not verified. Please check your email for the verification link.',
-                        'email_verified': False,
-                        'email': user.email
-                    })
-                
-                # Check if 2FA is enabled
-                if user.is_two_factor_enabled:
-                    # Don't return tokens yet, just tell the frontend 2FA is required
-                    return {
-                        'two_factor_required': True,
-                        'user_id': user.id,
-                        'username': user.username
-                    }
-        except User.DoesNotExist:
-            pass
+        # Check if username exists as a username or an email
+        user = User.objects.filter(Q(username=username) | Q(email=username)).first()
+        
+        if user and user.check_password(password):
+            # Check if email is verified
+            if not user.is_email_verified:
+                raise serializers.ValidationError({
+                    'detail': 'Email not verified. Please check your email for the verification link.',
+                    'email_verified': False,
+                    'email': user.email
+                })
+            
+            # Check if 2FA is enabled
+            if user.is_two_factor_enabled:
+                # Don't return tokens yet, just tell the frontend 2FA is required
+                return {
+                    'two_factor_required': True,
+                    'user_id': user.id,
+                    'username': user.username
+                }
+            
+            # Normalize the username in attrs for super().validate()
+            attrs[self.username_field] = user.username
 
         # If 2FA not required or user is incorrect, let super() handle it
-        data = super().validate(attrs)
+        try:
+            data = super().validate(attrs)
+        except Exception as e:
+            # Re-raise standard authentication errors
+            raise e
         
         # Add user info to response
         data['user'] = {
@@ -181,25 +188,20 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = [AllowAny]
 
     def create(self, request, *args, **kwargs):
-        print('RegisterView received data:', request.data)
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
-            print('RegisterView serializer errors:', serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         # Create user
         user = serializer.save()
         
-        # Send verification email
-        try:
-            frontend_url = request.data.get('frontend_url', 'http://localhost:5173')
-            email_sent = send_verification_email(user, frontend_url)
-            if email_sent:
-                print(f'✅ EMAIL SUCCESS: Verification email sent to {user.email}')
-            else:
-                print(f'❌ EMAIL FAILURE: Failed to send verification email to {user.email}')
-        except Exception as e:
-            print(f'⚠️ EMAIL ERROR: {e}')
+        # Send verification email in background to avoid blocking the response
+        frontend_url = request.data.get('frontend_url', 'http://localhost:5173')
+        threading.Thread(
+            target=send_verification_email,
+            args=(user, frontend_url),
+            daemon=True
+        ).start()
         
         headers = self.get_success_headers(serializer.data)
         response_data = serializer.data
@@ -293,6 +295,81 @@ class ResendVerificationEmailView(APIView):
             return Response({
                 'detail': 'If this email is registered, a verification link will be sent.'
             }, status=status.HTTP_200_OK)
+
+
+class ForgotPasswordView(APIView):
+    """
+    Request a password reset link.
+
+    Security note:
+    - This endpoint intentionally returns the same response regardless of whether the email exists.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        frontend_url = request.data.get('frontend_url', 'http://localhost:5173')
+
+        if not email:
+            return Response({'detail': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Don't leak whether an account exists.
+        user = User.objects.filter(email=email).first()
+        if user:
+            # Reuse existing verification token fields as the reset token.
+            user.generate_verification_token()
+            send_password_reset_email(user, frontend_url=frontend_url)
+
+        return Response({
+            'detail': 'If this email is registered, a password reset link will be sent.'
+        }, status=status.HTTP_200_OK)
+
+
+class ResetPasswordView(APIView):
+    """
+    Reset password using a token from the reset email.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        token = request.data.get('token')
+        new_password = request.data.get('new_password')
+        confirm_password = request.data.get('confirm_password')
+
+        if not token or not new_password or not confirm_password:
+            return Response(
+                {'detail': 'Token, new password and confirm password are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if new_password != confirm_password:
+            return Response({'detail': 'Passwords do not match.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email_verification_token=token)
+        except User.DoesNotExist:
+            return Response({'detail': 'Invalid or expired reset token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user.token_created_at:
+            return Response({'detail': 'Invalid or expired reset token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        token_age = timezone.now() - user.token_created_at
+        if token_age > timedelta(hours=settings.EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS):
+            return Response({'detail': 'Reset token has expired.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from django.contrib.auth.password_validation import validate_password
+            validate_password(new_password, user)
+        except Exception as e:
+            return Response({'detail': list(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+
+        # Invalidate the token after successful password change.
+        user.generate_verification_token()
+
+        return Response({'detail': 'Password reset successfully. You can now login.'}, status=status.HTTP_200_OK)
 
 class ChangePasswordView(APIView):
     permission_classes = [permissions.IsAuthenticated]

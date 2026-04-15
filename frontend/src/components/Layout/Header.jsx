@@ -11,8 +11,8 @@ const UsafiLogo = () => (
 
 const Header = ({ role }) => {
   const theme = role === 'admin'
-    ? 'bg-gradient-to-r from-red-600 via-blue-600 to-blue-400 text-white'
-    : 'bg-gradient-to-r from-blue-600 to-white text-blue-900';
+    ? 'bg-gradient-to-r from-red-600 via-emerald-600 to-emerald-400 text-white'
+    : 'bg-gradient-to-r from-emerald-600 to-white text-emerald-900';
   return (
     <header className={`flex items-center px-6 py-4 shadow ${theme}`} style={{ minHeight: 72 }}>
       <UsafiLogo />

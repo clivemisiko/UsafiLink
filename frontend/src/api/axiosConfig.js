@@ -10,7 +10,7 @@ export const API_BASE_URL = getBaseUrl();
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -43,7 +43,12 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip token-refresh for auth endpoints (login, 2fa/login) so that
+    // wrong-credential 401s surface directly to the caller as errors.
+    const isAuthEndpoint = originalRequest.url?.includes('login') ||
+                           originalRequest.url?.includes('token');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {

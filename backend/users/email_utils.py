@@ -238,3 +238,118 @@ def send_welcome_email(user):
     except Exception as e:
         print(f"Error sending welcome email: {e}")
         return False
+
+
+def send_password_reset_email(user, frontend_url='http://localhost:5173'):
+    """
+    Send password reset link to user.
+    Note: This uses the user's existing `email_verification_token` field as the reset token.
+    """
+    reset_token = user.email_verification_token
+    reset_link = f"{frontend_url}/reset-password/{reset_token}"
+
+    subject = 'Reset Your UsafiLink Password'
+
+    html_message = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+            }}
+            .container {{
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+            }}
+            .header {{
+                background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+                color: white;
+                padding: 30px;
+                text-align: center;
+                border-radius: 10px 10px 0 0;
+            }}
+            .content {{
+                background: #f9fafb;
+                padding: 30px;
+                border-radius: 0 0 10px 10px;
+            }}
+            .button {{
+                display: inline-block;
+                padding: 15px 30px;
+                background: #059669;
+                color: white;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: bold;
+                margin: 20px 0;
+            }}
+            .footer {{
+                text-align: center;
+                margin-top: 20px;
+                color: #6b7280;
+                font-size: 12px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🔐 UsafiLink Password Reset</h1>
+                <p>Securely reset your password</p>
+            </div>
+            <div class="content">
+                <h2>Hello {user.first_name or user.username}!</h2>
+                <p>We received a request to reset your UsafiLink password.</p>
+
+                <div style="text-align: center;">
+                    <a href="{reset_link}" class="button">Reset Password</a>
+                </div>
+
+                <p>Or copy and paste this link into your browser:</p>
+                <p style="word-break: break-all; color: #059669;">{reset_link}</p>
+
+                <p><strong>This link will expire in 24 hours.</strong></p>
+                <p>If you didn't request a password reset, you can ignore this email.</p>
+
+                <div class="footer">
+                    <p>© 2026 UsafiLink. All rights reserved.</p>
+                    <p>Professional Exhauster Services in Nairobi, Kenya</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    plain_message = f"""
+    Hello {user.first_name or user.username}!
+
+    We received a request to reset your UsafiLink password.
+
+    Reset link:
+    {reset_link}
+
+    This link will expire in 24 hours.
+
+    If you didn't request a password reset, you can ignore this email.
+
+    © 2026 UsafiLink. All rights reserved.
+    """
+
+    try:
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        return True
+    except Exception as e:
+        print(f"Error sending password reset email: {e}")
+        return False

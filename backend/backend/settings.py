@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'bookings',
     'payments',
     'tracking',
+    'vehicles.apps.VehiclesConfig',
 ]
 
 MIDDLEWARE = [
@@ -58,6 +59,15 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Duplicate corsheaders entries removed (handled earlier)
+CORS_ALLOW_ALL_ORIGINS = True   # quick dev mode
+# or restrict:
+# CORS_ALLOWED_ORIGINS = [
+#     "http://10.0.2.2:8000",
+#     "http://localhost:8000",
+# ]
+
 
 ROOT_URLCONF = 'backend.urls'
 
@@ -223,8 +233,8 @@ MPESA_CALLBACK_URL = config('MPESA_CALLBACK_URL', default='http://localhost:8000
 
 # Africa's Talking SMS Configuration
 AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='Usafilink')
-AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='atsk_a8c5f59adf97197e26beb425b171f023694a24a51b12f8f7a863ab4cd40fde46c43f0580')
-AFRICASTALKING_SENDER_ID = config('AFRICASTALKING_SENDER_ID', default='Usafilink')
+AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='atsk_59e148d226157f27a6c7141c6574ca332662dece7be9a7e4c47dcdc1e4eafb3764a5ff52')
+AFRICASTALKING_SENDER_ID = config('AFRICASTALKING_SENDER_ID', default=None)
 
 # Email Configuration
 EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
@@ -248,3 +258,29 @@ EMAIL_VERIFICATION_REQUIRED = True
 EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS = 24
 
 # Force reload for MPESA_ENV
+
+# Celery Configuration
+CELERY_TASK_ALWAYS_EAGER = True # Fallback for dev without Redis
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
+# Celery Beat Schedule
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    'check_driver_timeouts': {
+        'task': 'bookings.tasks.check_driver_timeouts',
+        'schedule': 10.0, # Every 10 seconds
+    },
+    'cleanup_old_bookings': {
+        'task': 'bookings.tasks.cleanup_old_bookings',
+        'schedule': crontab(hour=0, minute=0), # Daily at midnight
+    },
+    'auto_cancel_pending_bookings': {
+        'task': 'bookings.tasks.auto_cancel_pending_bookings',
+        'schedule': crontab(hour='*/1', minute=0), # Every hour
+    },
+}

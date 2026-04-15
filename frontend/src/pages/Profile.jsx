@@ -16,23 +16,25 @@ import toast from 'react-hot-toast';
 import ChangePasswordModal from '../components/ChangePasswordModal';
 import TwoFactorModal from '../components/TwoFactorModal';
 
-const Profile = () => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+const Profile = ({ user: initialUser = null, isEmbedded = false }) => {
+  const [user, setUser] = useState(initialUser);
+  const [loading, setLoading] = useState(!initialUser);
   const [editing, setEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showTwoFactorModal, setShowTwoFactorModal] = useState(false);
   const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone_number: '',
-    address: ''
+    first_name: initialUser?.first_name || '',
+    last_name: initialUser?.last_name || '',
+    email: initialUser?.email || '',
+    phone_number: initialUser?.phone_number || '',
+    address: initialUser?.address || ''
   });
 
   useEffect(() => {
-    fetchUserProfile();
-  }, []);
+    if (!initialUser) {
+      fetchUserProfile();
+    }
+  }, [initialUser]);
 
   const fetchUserProfile = async () => {
     try {
@@ -65,11 +67,11 @@ const Profile = () => {
 
   const handleCancel = () => {
     setFormData({
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
-      email: user.email || '',
-      phone_number: user.phone_number || '',
-      address: user.address || ''
+      first_name: user?.first_name || '',
+      last_name: user?.last_name || '',
+      email: user?.email || '',
+      phone_number: user?.phone_number || '',
+      address: user?.address || ''
     });
     setEditing(false);
   };
@@ -100,82 +102,108 @@ const Profile = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className={`${isEmbedded ? 'h-64' : 'min-h-screen'} flex items-center justify-center`}>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
       </div>
     );
   }
 
   const tabs = [
     { id: 'personal', label: 'Personal Info', icon: User },
-    ...(user?.role === 'driver' ? [{ id: 'vehicle', label: 'Vehicle Info', icon: Truck }] : []),
+    ...(user?.role === 'driver' ? [{ id: 'vehicle', label: 'Vehicle Info', icon: Shield }] : []),
     { id: 'security', label: 'Security', icon: Shield },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="md:flex md:items-center md:justify-between">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-3xl font-bold text-gray-900">Account Settings</h1>
-              <p className="mt-1 text-sm text-gray-600">
-                Manage your {user?.role} profile and account security
-              </p>
-            </div>
-            <div className="mt-4 flex md:mt-0 md:ml-4">
-              {activeTab === 'personal' && (
-                !editing ? (
-                  <button
-                    onClick={() => setEditing(true)}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition"
-                  >
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit Profile
-                  </button>
-                ) : (
-                  <div className="flex space-x-2">
+    <div className={`${isEmbedded ? '' : 'min-h-screen'} bg-gray-50`}>
+      {!isEmbedded && (
+        <header className="bg-white shadow">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="md:flex md:items-center md:justify-between">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-3xl font-bold text-gray-900">Account Settings</h1>
+                <p className="mt-1 text-sm text-gray-600">
+                  Manage your {user?.role} profile and account security
+                </p>
+              </div>
+              <div className="mt-4 flex md:mt-0 md:ml-4">
+                {activeTab === 'personal' && (
+                  !editing ? (
                     <button
-                      onClick={handleSave}
-                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition"
+                      onClick={() => setEditing(true)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition"
                     >
-                      <Save className="mr-2 h-4 w-4" />
-                      Save
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Profile
                     </button>
-                    <button
-                      onClick={handleCancel}
-                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition"
-                    >
-                      <X className="mr-2 h-4 w-4" />
-                      Cancel
-                    </button>
-                  </div>
-                )
-              )}
+                  ) : (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleSave}
+                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition"
+                      >
+                        <Save className="mr-2 h-4 w-4" />
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancel}
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition"
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Cancel
+                      </button>
+                    </div>
+                  )
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Tab Navigation */}
-          <div className="mt-6 flex space-x-8 border-b border-gray-200">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center pb-4 px-1 border-b-2 font-medium text-sm transition ${activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                >
-                  <Icon className="mr-2 h-4 w-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
+            {/* Tab Navigation */}
+            <div className="mt-6 flex space-x-8 border-b border-gray-200">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center pb-4 px-1 border-b-2 font-medium text-sm transition ${activeTab === tab.id
+                      ? 'border-emerald-500 text-emerald-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                  >
+                    <Icon className="mr-2 h-4 w-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+        </header>
+      )}
+
+      {isEmbedded && (
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex space-x-4 border-b border-gray-100 w-full mb-4">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`pb-3 px-1 font-bold text-sm transition-all border-b-2 ${activeTab === tab.id ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {activeTab === 'personal' && (
+            <button
+              onClick={() => editing ? handleSave() : setEditing(true)}
+              className={`flex items-center px-4 py-2 rounded-xl font-bold transition-all text-sm border shadow-sm ${editing ? 'bg-green-50 text-green-700 border-green-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}
+            >
+              {editing ? <><Save className="mr-2 h-4 w-4" /> Save</> : <><Edit className="mr-2 h-4 w-4" /> Edit Profile</>}
+            </button>
+          )}
         </div>
-      </header>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -187,7 +215,7 @@ const Profile = () => {
                   {editing ? (
                     <input
                       type="text"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 active:ring-blue-500 outline-none"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 active:ring-emerald-500 outline-none"
                       value={formData.first_name}
                       onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                     />
@@ -200,7 +228,7 @@ const Profile = () => {
                   {editing ? (
                     <input
                       type="text"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 active:ring-blue-500 outline-none"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 active:ring-emerald-500 outline-none"
                       value={formData.last_name}
                       onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                     />
@@ -225,7 +253,7 @@ const Profile = () => {
                     {editing ? (
                       <input
                         type="tel"
-                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 active:ring-blue-500 outline-none"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 active:ring-emerald-500 outline-none"
                         value={formData.phone_number}
                         onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
                       />
@@ -242,7 +270,7 @@ const Profile = () => {
                   <MapPin className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
                   {editing ? (
                     <textarea
-                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 active:ring-blue-500 outline-none"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 active:ring-emerald-500 outline-none"
                       rows="3"
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
@@ -285,7 +313,7 @@ const Profile = () => {
               <div className="space-y-4">
                 <button onClick={handleChangePassword} className="flex items-center justify-between w-full p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition">
                   <div className="flex items-center">
-                    <Shield className="h-5 w-5 text-blue-600 mr-4" />
+                    <Shield className="h-5 w-5 text-emerald-600 mr-4" />
                     <div className="text-left">
                       <p className="font-semibold">Change Password</p>
                       <p className="text-sm text-gray-500">Update your account password</p>

@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { adminAPI } from '../../api/admin';
 import toast from 'react-hot-toast';
+import { exportToCSV } from '../../utils/csvExport';
+import UserDetailsModal from './UserDetailsModal';
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
@@ -31,6 +33,7 @@ const AdminUsers = () => {
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showActions, setShowActions] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -139,15 +142,25 @@ const AdminUsers = () => {
   };
 
   const handleViewDetails = (userId) => {
-    // Navigate to user details page or show modal
-    toast.info(`Viewing details for user ID: ${userId}`);
+    setSelectedUserId(userId);
     setShowActions(null);
+  };
+
+  const handleExport = () => {
+    if (filteredUsers.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
+    // Prepare data for export - remove sensitive or unnecessary fields
+    const exportData = filteredUsers.map(({ password, ...u }) => u);
+    exportToCSV(exportData, 'usafilink_users');
+    toast.success("Exporting users CSV...");
   };
 
   const getRoleBadge = (role) => {
     switch (role) {
       case 'admin': return 'bg-purple-50 text-purple-700 border-purple-100 ring-4 ring-purple-50/50';
-      case 'driver': return 'bg-blue-50 text-blue-700 border-blue-100 ring-4 ring-blue-50/50';
+      case 'driver': return 'bg-emerald-50 text-emerald-700 border-emerald-100 ring-4 ring-emerald-50/50';
       case 'customer': return 'bg-green-50 text-green-700 border-green-100 ring-4 ring-green-50/50';
       default: return 'bg-gray-50 text-gray-700 border-gray-100';
     }
@@ -163,7 +176,7 @@ const AdminUsers = () => {
   if (loading && users.length === 0) {
     return (
       <div className="h-96 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
       </div>
     );
   }
@@ -180,15 +193,22 @@ const AdminUsers = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={handleExport}
+            className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-500 hover:text-green-600 hover:bg-green-50 transition-all"
+            title="Export CSV"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+          <button
             onClick={fetchUsers}
-            className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all"
+            className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
             title="Refresh Data"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <Link
             to="/admin/users/new"
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-200 hover:bg-blue-600 hover:shadow-blue-200 transition-all"
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-200 hover:bg-emerald-600 hover:shadow-emerald-200 transition-all"
           >
             <Plus className="w-5 h-5" />
             <span>Add New User</span>
@@ -225,7 +245,7 @@ const AdminUsers = () => {
           <input
             type="text"
             placeholder="Search by name, email or phone..."
-            className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/10 placeholder:text-gray-400"
+            className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-emerald-500/10 placeholder:text-gray-400"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -235,7 +255,7 @@ const AdminUsers = () => {
             <button
               key={r}
               onClick={() => setRoleFilter(r)}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${roleFilter === r ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${roleFilter === r ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
                 }`}
             >
               {r}
@@ -243,7 +263,7 @@ const AdminUsers = () => {
           ))}
         </div>
         <select
-          className="bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 focus:ring-2 focus:ring-blue-500/10"
+          className="bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 focus:ring-2 focus:ring-emerald-500/10"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
@@ -269,17 +289,17 @@ const AdminUsers = () => {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filteredUsers.map((u) => (
-                  <tr key={u.id} className="hover:bg-blue-50/10 transition-colors group">
+                  <tr key={u.id} className="hover:bg-emerald-50/10 transition-colors group">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-tr from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center text-slate-500 font-black relative overflow-hidden ring-4 ring-transparent group-hover:ring-blue-50 transition-all">
+                        <div className="w-12 h-12 bg-gradient-to-tr from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center text-slate-500 font-black relative overflow-hidden ring-4 ring-transparent group-hover:ring-emerald-50 transition-all">
                           {u.username?.charAt(0).toUpperCase()}
                           {u.role === 'driver' && (
                             <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full ${u.is_online ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                           )}
                         </div>
                         <div>
-                          <div className="text-sm font-black text-gray-900 group-hover:text-blue-600 transition-colors">
+                          <div className="text-sm font-black text-gray-900 group-hover:text-emerald-600 transition-colors">
                             {u.first_name || u.last_name ? `${u.first_name} ${u.last_name}` : u.username}
                           </div>
                           <div className="text-xs text-gray-400 font-medium">@{u.username}</div>
@@ -313,7 +333,7 @@ const AdminUsers = () => {
                     </td>
                     <td className="px-8 py-5 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Link to={`/admin/users/edit/${u.id}`} className="p-2.5 bg-gray-50 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-xl transition-all">
+                        <Link to={`/admin/users/edit/${u.id}`} className="p-2.5 bg-gray-50 hover:bg-emerald-50 text-gray-400 hover:text-emerald-600 rounded-xl transition-all">
                           <Edit className="w-4 h-4" />
                         </Link>
                         <div className="relative">
@@ -349,7 +369,7 @@ const AdminUsers = () => {
                               <div className="h-px bg-gray-50 my-2"></div>
                               <button
                                 onClick={() => handleViewDetails(u.id)}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
                               >
                                 <ExternalLink className="w-4 h-4" /> View Details
                               </button>
@@ -375,7 +395,7 @@ const AdminUsers = () => {
                   setRoleFilter('all');
                   setStatusFilter('all');
                 }}
-                className="mt-6 text-blue-600 font-black text-xs uppercase tracking-widest hover:tracking-[0.2em] transition-all"
+                className="mt-6 text-emerald-600 font-black text-xs uppercase tracking-widest hover:tracking-[0.2em] transition-all"
               >
                 Clear all filters
               </button>
@@ -383,6 +403,13 @@ const AdminUsers = () => {
           )}
         </div>
       </div>
+
+      {selectedUserId && (
+        <UserDetailsModal
+          userId={selectedUserId}
+          onClose={() => setSelectedUserId(null)}
+        />
+      )}
     </div>
   );
 };

@@ -52,16 +52,22 @@ const DriverDashboard = () => {
   const fetchDriverData = async () => {
     try {
       const profile = await authAPI.getCurrentUser();
-      const myBookings = await bookingsAPI.getUserBookings();
-      const available = await bookingsAPI.getAvailableBookings();
-      const statsData = await bookingsAPI.getStats();
-
       setUser(profile);
       setIsOnline(profile.is_online);
 
+      const [myBookingsResult, availableResult, statsResult] = await Promise.allSettled([
+        bookingsAPI.getUserBookings(),
+        profile.is_online ? bookingsAPI.getAvailableBookings() : Promise.resolve([]),
+        bookingsAPI.getStats()
+      ]);
+
+      const myBookings = myBookingsResult.status === 'fulfilled' ? myBookingsResult.value : [];
+      const available = availableResult.status === 'fulfilled' ? availableResult.value : [];
+      const statsData = statsResult.status === 'fulfilled' ? statsResult.value : {};
+
       // Current Job Logic
       const activeJob = myBookings.find(b =>
-        ['accepted', 'started', 'arrived', 'pending', 'cancelled'].includes(b.status)
+        ['accepted', 'started', 'arrived', 'pending'].includes(b.status)
       );
 
       if (activeJob) {
@@ -84,7 +90,6 @@ const DriverDashboard = () => {
         else if (activeJob.status === 'arrived') setJobStatus('arrived');
         else if (activeJob.status === 'accepted') setJobStatus('active');
         else if (activeJob.status === 'pending') setJobStatus('pending');
-        else if (activeJob.status === 'cancelled') setJobStatus('cancelled');
       } else {
         setCurrentJob(null);
         setJobStatus('active');
@@ -100,6 +105,9 @@ const DriverDashboard = () => {
       // Stats Logic
       if (statsData.summary) setSummary(statsData.summary);
       if (statsData.stats_table) setStats(statsData.stats_table);
+      if (myBookingsResult.status === 'rejected' || availableResult.status === 'rejected' || statsResult.status === 'rejected') {
+        toast.error('Some dashboard sections could not be loaded.');
+      }
 
     } catch (error) {
       console.error("Error fetching driver jobs", error);
@@ -186,7 +194,7 @@ const DriverDashboard = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
-          <Loader className="w-10 h-10 animate-spin text-blue-600 mx-auto mb-2" />
+          <Loader className="w-10 h-10 animate-spin text-emerald-600 mx-auto mb-2" />
           <p className="text-gray-500">Loading dashboard...</p>
         </div>
       </div>
@@ -199,7 +207,7 @@ const DriverDashboard = () => {
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">UsafiLink <span className="text-blue-600">Driver</span></h1>
+              <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">UsafiLink <span className="text-emerald-600">Driver</span></h1>
               <p className="text-sm font-medium text-gray-400">Manage your fleet & jobs</p>
             </div>
             <div className="flex items-center gap-3">
@@ -240,13 +248,13 @@ const DriverDashboard = () => {
           <div className="flex gap-8 border-b border-gray-100">
             <button
               onClick={() => setActiveTab('home')}
-              className={`pb-3 px-1 font-bold text-sm transition-all border-b-2 ${activeTab === 'home' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+              className={`pb-3 px-1 font-bold text-sm transition-all border-b-2 ${activeTab === 'home' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
             >
               Job Dashboard
             </button>
             <button
               onClick={() => setActiveTab('profile')}
-              className={`pb-3 px-1 font-bold text-sm transition-all border-b-2 ${activeTab === 'profile' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+              className={`pb-3 px-1 font-bold text-sm transition-all border-b-2 ${activeTab === 'profile' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
             >
               My Profile
             </button>
@@ -257,14 +265,14 @@ const DriverDashboard = () => {
       <main className="max-w-4xl mx-auto p-4 space-y-6">
         {activeTab === 'profile' ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <Profile user={user} />
+            <Profile user={user} isEmbedded={true} />
           </div>
         ) : (
           <div className="space-y-6 animate-in fade-in duration-500">
             <div className="bg-white rounded-lg shadow-sm p-4">
               <h2 className="text-lg font-semibold text-gray-800 mb-3">Today's Summary</h2>
               <div className="grid grid-cols-2 gap-4 text-center">
-                <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="bg-emerald-50 p-3 rounded-lg">
                   <p className="text-xs text-gray-500 uppercase">Jobs</p>
                   <p className="text-xl font-bold text-gray-900">{summary.jobs_done}/{summary.total_jobs}</p>
                 </div>
@@ -284,10 +292,10 @@ const DriverDashboard = () => {
             </div>
 
             {currentJob ? (
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-blue-600 overflow-hidden">
-                <div className="p-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
-                  <h2 className="font-bold text-blue-900">Current Job</h2>
-                  <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full font-medium">In Progress</span>
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-emerald-600 overflow-hidden">
+                <div className="p-4 bg-emerald-50 border-b border-emerald-100 flex justify-between items-center">
+                  <h2 className="font-bold text-emerald-900">Current Job</h2>
+                  <span className="text-xs bg-emerald-200 text-emerald-800 px-2 py-1 rounded-full font-medium">In Progress</span>
                 </div>
                 <div className="p-5">
                   <div className="flex justify-between items-start mb-4">
@@ -314,7 +322,7 @@ const DriverDashboard = () => {
                   </div>
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <button onClick={handleDirections} className="flex flex-col items-center justify-center p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                      <Navigation className="w-6 h-6 text-blue-600 mb-1" />
+                      <Navigation className="w-6 h-6 text-emerald-600 mb-1" />
                       <span className="text-xs font-medium text-gray-700">Directions</span>
                     </button>
                     <button onClick={handleCall} className="flex flex-col items-center justify-center p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
@@ -330,10 +338,10 @@ const DriverDashboard = () => {
                     {jobStatus === 'pending' && (
                       <div className="space-y-2">
                         <div className="w-full bg-yellow-100 border border-yellow-300 text-yellow-800 font-bold py-2 rounded-lg text-center mb-2">⚠️ Job Assigned (Waiting Acceptance)</div>
-                        <button onClick={() => handleAcceptJob(currentJob.id)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">Accept Job</button>
+                        <button onClick={() => handleAcceptJob(currentJob.id)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg transition">Accept Job</button>
                       </div>
                     )}
-                    {jobStatus === 'active' && <button onClick={handleStartJob} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">Start Job</button>}
+                    {jobStatus === 'active' && <button onClick={handleStartJob} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg transition">Start Job</button>}
                     {jobStatus === 'started' && <div className="w-full bg-green-100 border border-green-300 text-green-800 font-bold py-3 rounded-lg text-center">⏱️ Job In Progress...</div>}
                     {jobStatus === 'arrived' && <div className="w-full bg-purple-100 border border-purple-300 text-purple-800 font-bold py-3 rounded-lg text-center">📍 At Customer Location</div>}
                     <div className="grid grid-cols-2 gap-3">
@@ -370,12 +378,12 @@ const DriverDashboard = () => {
               ) : (
                 availableJobs.map((job, index) => (
                   <div key={job.id} className="flex items-center py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 -mx-4 px-4 transition">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm mr-4">{index + 1}</div>
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm mr-4">{index + 1}</div>
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">{new Date(job.scheduled_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {job.service_type?.replace('_', ' ').toUpperCase()}</p>
                       <p className="text-sm text-gray-500">{job.customer_name} • {job.location_name}</p>
                     </div>
-                    <button onClick={() => handleAcceptJob(job.id)} className="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-blue-700 transition">Accept</button>
+                    <button onClick={() => handleAcceptJob(job.id)} className="bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded hover:bg-emerald-700 transition">Accept</button>
                   </div>
                 ))
               )}
@@ -408,3 +416,4 @@ const DriverDashboard = () => {
 };
 
 export default DriverDashboard;
+

@@ -70,7 +70,7 @@ const BookingDetail = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800';
-      case 'accepted': return 'bg-blue-100 text-blue-800';
+      case 'accepted': return 'bg-emerald-100 text-emerald-800';
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -103,7 +103,7 @@ const BookingDetail = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <Loader className="w-12 h-12 animate-spin text-emerald-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading booking details...</p>
         </div>
       </div>
@@ -115,7 +115,7 @@ const BookingDetail = () => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 mb-4">Booking not found</p>
-          <Link to="/bookings" className="text-blue-600 hover:text-blue-800">
+          <Link to="/bookings" className="text-emerald-600 hover:text-emerald-800">
             ← Back to Bookings
           </Link>
         </div>
@@ -170,12 +170,12 @@ const BookingDetail = () => {
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
                     {booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1)}
                   </span>
-                  {booking.payment_status !== 'completed' && booking.status === 'completed' && (
+                  {booking.payment_status !== 'paid' && booking.status === 'completed' && (
                     <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                       Incomplete Payment
                     </span>
                   )}
-                  {booking.payment_status === 'completed' && (
+                  {booking.payment_status === 'paid' && (
                     <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                       Paid
                     </span>
@@ -216,7 +216,7 @@ const BookingDetail = () => {
                     href={`https://www.google.com/maps?q=${booking.latitude},${booking.longitude}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 text-sm mt-2 inline-block"
+                    className="text-emerald-600 hover:text-emerald-800 text-sm mt-2 inline-block"
                   >
                     View on Map →
                   </a>
@@ -258,22 +258,37 @@ const BookingDetail = () => {
                   <h2 className="text-xl font-semibold text-gray-800">Assigned Driver</h2>
                 </div>
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{booking.driver.username || 'Driver'}</p>
-                    {booking.driver.phone_number && (
-                      <p className="text-gray-600 text-sm flex items-center mt-1">
-                        <Phone className="w-4 h-4 mr-1" />
-                        {booking.driver.phone_number}
-                      </p>
-                    )}
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                      <span className="text-emerald-700 font-bold text-lg">
+                        {(booking.driver_name || 'D').charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 text-lg">{booking.driver_name || 'Not Assigned'}</p>
+                      {booking.driver_phone && (
+                        <p className="text-gray-500 text-sm flex items-center mt-1">
+                          <Phone className="w-4 h-4 mr-1" />
+                          {booking.driver_phone}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  {booking.driver.phone_number && (
-                    <a
-                      href={`tel:${booking.driver.phone_number}`}
-                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
-                    >
-                      Call Driver
-                    </a>
+                  {booking.driver_phone && (
+                    <div className="flex gap-2">
+                      <a
+                        href={`tel:${booking.driver_phone}`}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-medium text-sm"
+                      >
+                        Call Driver
+                      </a>
+                      <a
+                        href={`sms:${booking.driver_phone}`}
+                        className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition font-medium text-sm"
+                      >
+                        Message
+                      </a>
+                    </div>
                   )}
                 </div>
               </div>
@@ -289,7 +304,7 @@ const BookingDetail = () => {
                 {booking.payment_status !== 'paid' && booking.status !== 'cancelled' && (
                   <button
                     onClick={handleMakePayment}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                    className="w-full bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 transition-colors"
                   >
                     Make Payment
                   </button>
@@ -321,8 +336,8 @@ const BookingDetail = () => {
                 {booking.status === 'completed' && (
                   <div className="space-y-4">
                     {!booking.rating_data ? (
-                      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center shadow-sm">
-                        <p className="text-blue-900 font-black text-sm uppercase tracking-widest mb-4">Rate the Experience</p>
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center shadow-sm">
+                        <p className="text-emerald-900 font-black text-sm uppercase tracking-widest mb-4">Rate the Experience</p>
                         <div className="flex justify-center gap-2 mb-4">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <button
@@ -336,14 +351,14 @@ const BookingDetail = () => {
                         </div>
                         <textarea
                           placeholder="Tell us what you loved... (optional)"
-                          className="w-full p-3 bg-white border border-blue-100 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none mb-4 min-h-[80px]"
+                          className="w-full p-3 bg-white border border-emerald-100 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 outline-none mb-4 min-h-[80px]"
                           value={ratingComment}
                           onChange={(e) => setRatingComment(e.target.value)}
                         />
                         <button
                           onClick={handleRatingSubmit}
                           disabled={!rating}
-                          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-200"
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-emerald-200"
                         >
                           Submit Review
                         </button>

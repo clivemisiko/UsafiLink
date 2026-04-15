@@ -6,6 +6,8 @@ from .views import (
     ToggleOnlineView,
     VerifyEmailView,
     ResendVerificationEmailView,
+    ForgotPasswordView,
+    ResetPasswordView,
     ChangePasswordView,
     TwoFactorSetupView,
     TwoFactorVerifyView,
@@ -22,6 +24,10 @@ urlpatterns = [
     path('profile/', ProfileView.as_view(), name='profile_update'),
     path('toggle-online/', ToggleOnlineView.as_view(), name='toggle_online'),
     path('change-password/', ChangePasswordView.as_view(), name='change_password'),
+
+    # Forgot / Reset password endpoints
+    path('forgot-password/', ForgotPasswordView.as_view(), name='forgot_password'),
+    path('reset-password/', ResetPasswordView.as_view(), name='reset_password'),
     
     # 2FA endpoints
     path('2fa/setup/', TwoFactorSetupView.as_view(), name='2fa_setup'),

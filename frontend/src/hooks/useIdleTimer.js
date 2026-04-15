@@ -9,7 +9,7 @@ const useIdleTimer = (timeoutMs = 15 * 60 * 1000) => { // Default 15 minutes
         const userRole = localStorage.getItem('user_role');
         const token = localStorage.getItem('access_token');
 
-        if (token && userRole === 'admin') {
+        if (token) {
             localStorage.clear();
             toast('Session expired due to inactivity', { icon: '🔐' });
             navigate('/login');

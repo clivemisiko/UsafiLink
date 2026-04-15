@@ -61,6 +61,12 @@ export const bookingsAPI = {
     return response.data;
   },
 
+  // Reject booking (Driver only)
+  rejectBooking: async (id) => {
+    const response = await axiosInstance.post(`/bookings/bookings/${id}/reject/`);
+    return response.data;
+  },
+
   // Get available time slots
   getAvailableSlots: async (date) => {
     const response = await axiosInstance.get('/bookings/available-slots/', {

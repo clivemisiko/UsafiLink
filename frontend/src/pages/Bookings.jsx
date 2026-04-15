@@ -49,9 +49,9 @@ const Bookings = () => {
     // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(booking =>
-        booking.location_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.service_type.toLowerCase().includes(searchTerm.toLowerCase())
+        booking.location_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.service_type?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -88,7 +88,7 @@ const Bookings = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800 border-green-200';
-      case 'accepted': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'accepted': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
       case 'pending':
       case 'payment_pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
@@ -99,7 +99,7 @@ const Bookings = () => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed': return <CheckCircle className="w-4 h-4" />;
-      case 'accepted': return <CheckCircle className="w-4 h-4 text-blue-600" />;
+      case 'accepted': return <CheckCircle className="w-4 h-4 text-emerald-600" />;
       case 'pending':
       case 'payment_pending': return <Clock className="w-4 h-4" />;
       case 'cancelled': return <XCircle className="w-4 h-4" />;
@@ -156,7 +156,7 @@ const Bookings = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
       </div>
     );
   }
@@ -175,7 +175,7 @@ const Bookings = () => {
             <div className="mt-4 flex md:mt-0 md:ml-4">
               <Link
                 to="/bookings/new"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
               >
                 <Calendar className="mr-2 h-4 w-4" />
                 New Booking
@@ -196,7 +196,7 @@ const Bookings = () => {
               <input
                 type="text"
                 placeholder="Search bookings..."
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -207,13 +207,16 @@ const Bookings = () => {
                 Status
               </label>
               <select
-                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm rounded-md"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <option value="all">All Statuses</option>
+                <option value="searching_driver">Searching Driver</option>
                 <option value="pending">Pending</option>
                 <option value="accepted">Accepted</option>
+                <option value="started">On the Way</option>
+                <option value="arrived">Arrived / Working</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
               </select>
@@ -225,7 +228,7 @@ const Bookings = () => {
                   setSearchTerm('');
                   setStatusFilter('all');
                 }}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
               >
                 <Filter className="mr-2 h-4 w-4" />
                 Clear Filters
@@ -239,8 +242,8 @@ const Bookings = () => {
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Calendar className="h-6 w-6 text-blue-600" />
+                <div className="p-2 bg-emerald-100 rounded-lg">
+                  <Calendar className="h-6 w-6 text-emerald-600" />
                 </div>
               </div>
               <div className="ml-4">
@@ -319,7 +322,7 @@ const Bookings = () => {
               <div className="mt-6">
                 <Link
                   to="/bookings/new"
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
                 >
                   <Calendar className="mr-2 -ml-1 h-5 w-5" />
                   New Booking
@@ -382,7 +385,7 @@ const Bookings = () => {
                         <div className="mt-2 flex space-x-2">
                           <Link
                             to={`/bookings/${booking.id}`}
-                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-emerald-700 bg-emerald-100 hover:bg-emerald-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
                           >
                             View
                           </Link>
@@ -407,7 +410,7 @@ const Bookings = () => {
         {/* Export Button */}
         {filteredBookings.length > 0 && (
           <div className="mt-6 flex justify-end">
-            <button onClick={handleExportBookings} className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <button onClick={handleExportBookings} className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500">
               <Download className="mr-2 h-4 w-4" />
               Export
             </button>

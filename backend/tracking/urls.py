@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import DriverLocationViewSet
 
 router = DefaultRouter()
-router.register(r'driver-locations', DriverLocationViewSet, basename='driverlocation')
+router.register(r'locations', DriverLocationViewSet, basename='driverlocation')
 
 urlpatterns = [
     path('', include(router.urls)),

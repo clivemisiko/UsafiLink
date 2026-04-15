@@ -5,13 +5,15 @@ User = settings.AUTH_USER_MODEL
 
 class Booking(models.Model):
     STATUS_CHOICES = (
-        ('pending', 'Pending'),
+        ('searching_driver', 'Searching for Driver'),  # New: System is finding nearest driver
+        ('pending', 'Pending'),  # Waiting for driver acceptance
         ('payment_pending', 'Payment Pending'),
         ('accepted', 'Accepted'),
         ('started', 'On the Way'),
         ('arrived', 'Arrived/Working'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
+        ('no_driver_available', 'No Driver Available'),  # New: No driver found nearby
     )
     
     SERVICE_TYPE_CHOICES = (
@@ -31,6 +33,16 @@ class Booking(models.Model):
 
     customer = models.ForeignKey(User, related_name='customer_bookings', on_delete=models.CASCADE)
     driver = models.ForeignKey(User, related_name='driver_bookings', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Uber-like driver assignment
+    current_notified_driver = models.ForeignKey(
+        User, 
+        related_name='current_notifications', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        help_text="Driver currently being notified (Uber-like queue)"
+    )
     
     # Location details
     location_name = models.CharField(max_length=255)
@@ -52,7 +64,7 @@ class Booking(models.Model):
     final_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
     # Status
-    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='pending')
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -68,7 +80,20 @@ class Rating(models.Model):
     driver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_ratings')
     score = models.IntegerField(choices=[(i, str(i)) for i in range(1, 6)])
     comment = models.TextField(blank=True, null=True)
+    
+    # Admin review fields
+    is_reviewed_by_admin = models.BooleanField(default=False, help_text="Whether admin has reviewed this rating")
+    admin_response = models.TextField(blank=True, null=True, help_text="Admin's response/notes to the rating")
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, 
+                                     related_name='reviewed_ratings', help_text="Admin who reviewed the rating")
+    is_flagged = models.BooleanField(default=False, help_text="Flag for inappropriate or problematic ratings")
+    flag_reason = models.CharField(max_length=255, blank=True, null=True, help_text="Reason for flagging")
+    
     created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True, help_text="When admin reviewed this rating")
+
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Rating for Booking {self.booking.id}: {self.score}/5"

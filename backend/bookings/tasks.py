@@ -19,12 +19,8 @@ def cleanup_old_bookings():
         
         count = old_bookings.count()
         
-        # You can either delete or archive them
-        # old_bookings.delete()  # Delete them
-        # Or mark them as archived
-        for booking in old_bookings:
-            booking.status = 'archived'
-            booking.save()
+        # Delete old bookings securely
+        old_bookings.delete()
         
         logger.info(f"Cleaned up {count} old bookings")
         return {"cleaned": count, "status": "success"}
@@ -61,3 +57,83 @@ def auto_cancel_pending_bookings():
     except Exception as e:
         logger.error(f"Auto-cancel task failed: {str(e)}")
         return {"error": str(e), "status": "failed"}
+
+
+@shared_task
+def check_driver_timeouts():
+    """
+    Periodic task to check and handle driver notification timeouts.
+    Should run every 10 seconds.
+    """
+    from bookings.services import DriverMatchingService
+    logger.info("Checking for driver notification timeouts...")
+    DriverMatchingService.check_and_handle_timeouts()
+
+
+@shared_task
+def send_driver_order_notification_task(booking_id, driver_id):
+    """
+    Send notification to driver about new order.
+    
+    Args:
+        booking_id: Booking ID
+        driver_id: Driver user ID
+    """
+    from users.models import User
+    from notifications.tasks import send_sms_task
+    
+    try:
+        booking = Booking.objects.get(id=booking_id)
+        driver = User.objects.get(id=driver_id)
+        
+        message = (
+            f"🚛 New Order Alert! #{booking.id}\n"
+            f"📍 {booking.location_name}\n"
+            f"📏 Service: {booking.get_service_type_display()}\n"
+            f"💰 KES {booking.estimated_price}\n"
+            f"⏰ {booking.scheduled_date.strftime('%d/%m/%Y %H:%M')}\n"
+            f"Tap to accept within 30 seconds!"
+        )
+        
+        # Send SMS
+        send_sms_task.delay(driver.phone_number, message)
+        
+        logger.info(f"Sent order notification to driver {driver.username} for booking {booking_id}")
+        
+    except Exception as e:
+        logger.error(f"Failed to send driver notification: {e}")
+
+
+@shared_task
+def initiate_driver_search_task(booking_id):
+    """
+    Asynchronous task to initiate driver search.
+    Called after a booking is created.
+    
+    Args:
+        booking_id: Booking ID
+    """
+    from bookings.services import DriverMatchingService
+    
+    try:
+        booking = Booking.objects.get(id=booking_id)
+        logger.info(f"Starting driver search for booking {booking_id}")
+        
+        success = DriverMatchingService.initiate_driver_search(booking)
+        
+        if success:
+            logger.info(f"Driver search initiated successfully for booking {booking_id}")
+        else:
+            logger.warning(f"No drivers available for booking {booking_id}")
+            
+            # Send notification to customer
+            from notifications.tasks import send_sms_task
+            message = (
+                f"Sorry, no exhauster drivers are currently available in your area. "
+                f"We'll keep searching and notify you when a driver is found. "
+                f"Booking #{booking.id}"
+            )
+            send_sms_task.delay(booking.customer.phone_number, message)
+            
+    except Exception as e:
+        logger.error(f"Error initiating driver search for booking {booking_id}: {e}")

@@ -10,7 +10,7 @@ class Vehicle(models.Model):
         ('other', 'Other'),
     )
     
-    driver = models.OneToOneField(User, on_delete=models.CASCADE, related_name='vehicle')
+    driver = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='vehicle')
     plate_number = models.CharField(max_length=20, unique=True)
     vehicle_type = models.CharField(max_length=20, choices=VEHICLE_TYPE_CHOICES, default='exhauster')
     capacity = models.PositiveIntegerField(help_text="Capacity in liters")

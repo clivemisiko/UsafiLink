@@ -1,11 +1,16 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Truck, User, LogOut, Home } from 'lucide-react';
+import { User, LogOut, Home, Droplets } from 'lucide-react';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const isLoggedIn = localStorage.getItem('access_token');
   const userRole = localStorage.getItem('user_role');
+
+  const getDashboardLink = () => {
+    if (!userRole) return '/';
+    return userRole === 'driver' ? '/driver' : '/dashboard';
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -19,21 +24,22 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link to="/" className="flex items-center">
-              <Truck className="h-8 w-8 text-blue-600" />
-              <span className="ml-2 text-xl font-bold text-gray-800">UsafiLink</span>
+            <Link to="/landing" className="flex items-center">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mr-2">
+                <Droplets className="text-white w-5 h-5" />
+              </div>
+              <span className="text-xl font-bold text-gray-800">Usafi<span className="text-emerald-500">Link</span></span>
             </Link>
 
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              <Link
-                to="/"
-                className="text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2 border-blue-500"
-              >
-                Dashboard
-              </Link>
-
               {userRole === 'driver' ? (
                 <>
+                  <Link
+                    to="/driver"
+                    className="text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2 border-emerald-500"
+                  >
+                    Dashboard
+                  </Link>
                   <Link
                     to="/driver/jobs"
                     className="text-gray-500 hover:text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium"
@@ -46,9 +52,21 @@ const Navbar = () => {
                   >
                     Earnings
                   </Link>
+                  <Link
+                    to="/driver/ratings"
+                    className="text-gray-500 hover:text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium"
+                  >
+                    Ratings
+                  </Link>
                 </>
               ) : (
                 <>
+                  <Link
+                    to="/dashboard"
+                    className="text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2 border-emerald-500"
+                  >
+                    Dashboard
+                  </Link>
                   <Link
                     to="/bookings"
                     className="text-gray-500 hover:text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium"
@@ -77,11 +95,18 @@ const Navbar = () => {
             {isLoggedIn ? (
               <div className="flex items-center space-x-2 sm:space-x-4">
                 <Link
-                  to="/"
-                  className="p-2 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center"
-                  title="Dashboard"
+                  to={getDashboardLink()}
+                  className="p-2 rounded-lg text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all flex items-center"
+                  title="My Dashboard"
                 >
                   <Home className="h-6 w-6" />
+                </Link>
+
+                <Link
+                  to={getDashboardLink()}
+                  className="hidden sm:inline text-gray-700 hover:text-emerald-600 hover:bg-emerald-50 p-2 rounded-lg transition-all text-sm font-medium"
+                >
+                  My Dashboard
                 </Link>
 
                 <span className="text-gray-700 text-sm hidden md:inline font-medium">
@@ -101,13 +126,13 @@ const Navbar = () => {
               <div className="flex items-center space-x-4">
                 <Link
                   to="/login"
-                  className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium"
+                  className="text-gray-700 hover:text-emerald-600 px-3 py-2 rounded-md text-sm font-medium"
                 >
                   Login
                 </Link>
                 <Link
                   to="/register"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
+                  className="bg-emerald-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-700 shadow-md shadow-emerald-600/20"
                 >
                   Register
                 </Link>

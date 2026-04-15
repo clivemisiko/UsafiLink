@@ -24,11 +24,23 @@ def send_booking_confirmation_task(booking_id):
     """Send booking confirmation SMS"""
     try:
         booking = Booking.objects.get(id=booking_id)
+        service_label = booking.get_service_type_display()
+        tank_label = f"{booking.tank_size}L"
+        schedule_label = booking.scheduled_date.strftime('%Y-%m-%d %H:%M')
+        est_price_label = f"KES {booking.estimated_price}"
+        location_label = booking.location_name or "N/A"
+        address_label = booking.address or "N/A"
+        maps_link = f"https://maps.google.com/?q={booking.latitude},{booking.longitude}"
+
         message = (
-            f"Booking #{booking.id} confirmed!\n"
-            f"Date: {booking.scheduled_date.strftime('%Y-%m-%d %H:%M')}\n"
-            f"Location: {booking.location_name}\n"
-            f"Thank you for choosing our service."
+            f"UsafiLink booking confirmed (#{booking.id}).\n"
+            f"Service: {service_label} | Tank: {tank_label}\n"
+            f"When: {schedule_label}\n"
+            f"Location: {location_label}\n"
+            f"Address: {address_label}\n"
+            f"Estimate: {est_price_label}\n"
+            f"Map: {maps_link}\n"
+            f"We are now finding the nearest available driver."
         )
         return sms_service.send_sms(booking.customer.phone_number, message)
     except Exception as e:
@@ -49,6 +61,29 @@ def send_payment_confirmation_task(payment_id):
         return sms_service.send_sms(payment.booking.customer.phone_number, message)
     except Exception as e:
         logger.error(f"Payment confirmation task failed: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+@shared_task
+def send_driver_accepted_task(booking_id):
+    """Send SMS when driver accepts the booking"""
+    try:
+        booking = Booking.objects.get(id=booking_id)
+        driver_name = booking.driver.get_full_name() or booking.driver.username
+        driver_phone = booking.driver.phone_number
+        service_type = booking.get_service_type_display()
+        scheduled_time = booking.scheduled_date.strftime('%H:%M')
+        
+        message = (
+            f"Great news! Driver {driver_name} has accepted your booking!\n"
+            f"Service: {service_type}\n"
+            f"Scheduled: {scheduled_time}\n"
+            f"Driver Contact: {driver_phone}\n"
+            f"Booking #: {booking.id}\n"
+            f"Track your booking in the UsafiLink app."
+        )
+        return sms_service.send_sms(booking.customer.phone_number, message)
+    except Exception as e:
+        logger.error(f"Driver acceptance SMS task failed: {str(e)}")
         return {"success": False, "error": str(e)}
 
 @shared_task

@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 import uuid
+from django.utils import timezone
 
 class User(AbstractUser):
     ROLE_CHOICES = (
@@ -16,7 +17,7 @@ class User(AbstractUser):
     # Email verification fields
     is_email_verified = models.BooleanField(default=False)
     email_verification_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    token_created_at = models.DateTimeField(auto_now_add=True)
+    token_created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     # 2FA fields
     two_factor_secret = models.CharField(max_length=32, blank=True, null=True)
@@ -28,6 +29,7 @@ class User(AbstractUser):
     def generate_verification_token(self):
         """Generate a new verification token"""
         self.email_verification_token = uuid.uuid4()
+        self.token_created_at = timezone.now()
         self.save(update_fields=['email_verification_token', 'token_created_at'])
         return self.email_verification_token
 

@@ -23,11 +23,16 @@ class UserSerializer(serializers.ModelSerializer):
 class BookingSerializer(serializers.ModelSerializer):
     customer_name = serializers.CharField(source='customer.get_full_name', read_only=True)
     customer_phone = serializers.CharField(source='customer.phone_number', read_only=True)
-    driver_name = serializers.CharField(source='driver.get_full_name', read_only=True, allow_null=True)
+    driver_name = serializers.SerializerMethodField()
     
     class Meta:
         model = Booking
         fields = '__all__'
+    
+    def get_driver_name(self, obj):
+        if obj.driver:
+            return obj.driver.get_full_name() or obj.driver.username
+        return None
 
 class PaymentSerializer(serializers.ModelSerializer):
     booking_details = serializers.SerializerMethodField()

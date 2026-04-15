@@ -48,7 +48,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-all animate-fadeIn">
             <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100 flex flex-col animate-scaleIn">
-                <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-600">
+                <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-600">
                     <div className="flex items-center text-white">
                         <Lock className="w-5 h-5 mr-3" />
                         <h2 className="text-xl font-bold">Change Password</h2>
@@ -71,13 +71,13 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
                                     required
                                     value={formData.old_password}
                                     onChange={(e) => setFormData({ ...formData, old_password: e.target.value })}
-                                    className="w-full pl-4 pr-12 py-3.5 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all group-focus-within:bg-white"
+                                    className="w-full pl-4 pr-12 py-3.5 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all group-focus-within:bg-white"
                                     placeholder="Enter current password"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowOld(!showOld)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-emerald-600 transition-colors"
                                 >
                                     {showOld ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
@@ -94,13 +94,13 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
                                     required
                                     value={formData.new_password}
                                     onChange={(e) => setFormData({ ...formData, new_password: e.target.value })}
-                                    className="w-full pl-4 pr-12 py-3.5 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all group-focus-within:bg-white"
+                                    className="w-full pl-4 pr-12 py-3.5 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all group-focus-within:bg-white"
                                     placeholder="At least 8 characters"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowNew(!showNew)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-emerald-600 transition-colors"
                                 >
                                     {showNew ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
@@ -115,13 +115,13 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
                                     required
                                     value={formData.confirm_password}
                                     onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })}
-                                    className="w-full pl-4 pr-12 py-3.5 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all group-focus-within:bg-white"
+                                    className="w-full pl-4 pr-12 py-3.5 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all group-focus-within:bg-white"
                                     placeholder="Repeat new password"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowConfirm(!showConfirm)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-emerald-600 transition-colors"
                                 >
                                     {showConfirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
@@ -153,7 +153,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex-2 py-4 px-8 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+                            className="flex-2 py-4 px-8 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                         >
                             {loading ? (
                                 <>

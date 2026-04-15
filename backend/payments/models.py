@@ -15,8 +15,6 @@ class Payment(models.Model):
     PAYMENT_METHOD_CHOICES = (
         ('mpesa', 'M-PESA'),
         ('cash', 'Cash'),
-        ('card', 'Credit/Debit Card'),
-        ('bank', 'Bank Transfer'),
     )
     
     booking = models.OneToOneField(

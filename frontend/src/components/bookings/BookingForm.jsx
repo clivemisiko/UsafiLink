@@ -17,7 +17,12 @@ const bookingSchema = z.object({
   special_instructions: z.string().optional(),
 });
 
+import { useLocation } from 'react-router-dom';
+
 const BookingForm = ({ onSuccess }) => {
+  const location = useLocation();
+  const preFilledData = location.state || {};
+
   const [loading, setLoading] = useState(false);
   const [priceEstimate, setPriceEstimate] = useState(null);
   const [coordinates, setCoordinates] = useState({ lat: null, lng: null });
@@ -26,12 +31,15 @@ const BookingForm = ({ onSuccess }) => {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
       service_type: 'septic',
-      tank_size: '1000',
+      tank_size: preFilledData.tankSize || '1000',
+      location_name: preFilledData.location || '',
+      address: preFilledData.location || '',
     },
   });
 
@@ -61,6 +69,11 @@ const BookingForm = ({ onSuccess }) => {
   }, []);
 
   const onSubmit = async (data) => {
+    if (!coordinates || (coordinates.lat === null && coordinates.lng === null)) {
+      toast.error('Please select your exact location on the map');
+      return;
+    }
+
     setLoading(true);
     try {
       // Combine date and time
@@ -69,8 +82,8 @@ const BookingForm = ({ onSuccess }) => {
       const bookingData = {
         ...data,
         scheduled_date: scheduledDateTime,
-        latitude: coordinates.lat || -1.2921, // Default Nairobi coords
-        longitude: coordinates.lng || 36.8219,
+        latitude: coordinates.lat, // Now guaranteed to be set
+        longitude: coordinates.lng,
         estimated_price: priceEstimate?.total || 0,
       };
 

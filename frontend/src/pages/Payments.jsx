@@ -8,7 +8,6 @@ import {
   Download,
   Filter,
   Search,
-  CreditCard,
   Smartphone,
   Loader,
   X
@@ -29,10 +28,11 @@ const Payments = () => {
   const location = useLocation();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentData, setPaymentData] = useState({ bookingId: null, amount: 0 });
-  const [selectedMethod, setSelectedMethod] = useState('mpesa'); // 'mpesa' or 'bank'
+  const [selectedMethod, setSelectedMethod] = useState('mpesa'); // 'mpesa', 'bank', or 'cash'
   const [bankReference, setBankReference] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [cashNotes, setCashNotes] = useState(''); // For cash payment notes
 
   const handleViewReceipt = async (paymentId) => {
     const toastId = toast.loading('Generating receipt...');
@@ -126,6 +126,31 @@ const Payments = () => {
     }
   };
 
+  const handleCashPayment = async (e) => {
+    e.preventDefault();
+    
+    setProcessingPayment(true);
+    const toastId = toast.loading('Submitting cash payment...');
+
+    try {
+      await paymentsAPI.initiateCashPayment({
+        booking_id: paymentData.bookingId,
+        amount: paymentData.amount,
+        notes: cashNotes
+      });
+
+      toast.success('Cash payment recorded! Pay the driver upon service completion.', { id: toastId });
+      setShowPaymentModal(false);
+      setCashNotes('');
+      fetchPayments();
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.detail || 'Failed to submit cash payment', { id: toastId });
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
   const pollStatus = async (paymentId) => {
     const toastId = toast.loading('Waiting for payment confirmation...');
     try {
@@ -198,7 +223,9 @@ const Payments = () => {
   };
 
   const formatCurrency = (amount) => {
-    return `KES ${amount?.toLocaleString() || '0'}`;
+    const num = parseFloat(amount);
+    if (isNaN(num)) return 'KES 0.00';
+    return `KES ${num.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const getStatusColor = (status) => {
@@ -223,7 +250,6 @@ const Payments = () => {
   const getPaymentMethodIcon = (method) => {
     switch (method) {
       case 'mpesa': return <Smartphone className="w-4 h-4" />;
-      case 'card': return <CreditCard className="w-4 h-4" />;
       case 'cash': return <DollarSign className="w-4 h-4" />;
       default: return <DollarSign className="w-4 h-4" />;
     }
@@ -280,7 +306,7 @@ const Payments = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
       </div>
     );
   }
@@ -306,8 +332,8 @@ const Payments = () => {
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <DollarSign className="h-6 w-6 text-blue-600" />
+                <div className="p-2 bg-emerald-100 rounded-lg">
+                  <DollarSign className="h-6 w-6 text-emerald-600" />
                 </div>
               </div>
               <div className="ml-4">
@@ -359,10 +385,11 @@ const Payments = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Amount</p>
                 <p className="text-2xl font-semibold text-gray-900">
-                  KES {payments
-                    .filter(p => p.status === 'paid')
-                    .reduce((sum, p) => sum + (p.amount || 0), 0)
-                    .toLocaleString()}
+                  {formatCurrency(
+                    payments
+                      .filter(p => p.status === 'paid')
+                      .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
+                  )}
                 </p>
               </div>
             </div>
@@ -379,7 +406,7 @@ const Payments = () => {
               <input
                 type="text"
                 placeholder="Search payments..."
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -390,7 +417,7 @@ const Payments = () => {
                 Status
               </label>
               <select
-                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm rounded-md"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -407,14 +434,13 @@ const Payments = () => {
                 Payment Method
               </label>
               <select
-                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm rounded-md"
                 value={paymentMethodFilter}
                 onChange={(e) => setPaymentMethodFilter(e.target.value)}
               >
                 <option value="all">All Methods</option>
                 <option value="mpesa">M-PESA</option>
                 <option value="cash">Cash</option>
-                <option value="card">Card</option>
               </select>
             </div>
 
@@ -425,7 +451,7 @@ const Payments = () => {
                   setStatusFilter('all');
                   setPaymentMethodFilter('all');
                 }}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
               >
                 <Filter className="mr-2 h-4 w-4" />
                 Clear Filters
@@ -534,7 +560,7 @@ const Payments = () => {
                                 toast.error('Receipt is only available for paid payments');
                               }
                             }}
-                            className="text-blue-600 hover:text-blue-900 font-bold"
+                            className="text-emerald-600 hover:text-emerald-900 font-bold"
                           >
                             Receipt
                           </button>
@@ -559,7 +585,7 @@ const Payments = () => {
         {/* Export Button */}
         {filteredPayments.length > 0 && (
           <div className="mt-6 flex justify-end">
-            <button onClick={handleExportPayments} className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <button onClick={handleExportPayments} className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500">
               <Download className="mr-2 h-4 w-4" />
               Export Statements
             </button>
@@ -567,7 +593,7 @@ const Payments = () => {
         )}
 
         {/* Payment Methods Info */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center mb-4">
               <Smartphone className="w-6 h-6 text-green-600 mr-3" />
@@ -580,22 +606,6 @@ const Payments = () => {
               <p>• Fast and secure</p>
               <p>• Instant confirmation</p>
               <p>• Receipt provided</p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center mb-4">
-              <CreditCard className="w-6 h-6 text-blue-600 mr-3" />
-              <h3 className="text-lg font-semibold text-gray-800">Bank Transfer</h3>
-            </div>
-            <p className="text-gray-600 mb-4">
-              Transfer funds directly to our bank account.
-            </p>
-            <div className="text-sm bg-blue-50 p-4 rounded-lg mb-4">
-              <p className="font-bold text-blue-800">Bank: KCB Bank</p>
-              <p className="text-blue-700">Paybill: 522522 | Acc: 132470456</p>
-              <p className="text-blue-700">Name: CLIVE MISIKO MUTENDE</p>
-              <p className="text-blue-700 text-xs mt-2 italic">* Use Booking # as reference</p>
             </div>
           </div>
 
@@ -633,13 +643,13 @@ const Payments = () => {
                 <p className="text-gray-600 mt-2">
                   Complete payment for Booking #{paymentData.bookingId}
                 </p>
-                <p className="text-2xl font-bold text-blue-600 mt-2">
+                <p className="text-2xl font-bold text-emerald-600 mt-2">
                   KES {paymentData.amount?.toLocaleString()}
                 </p>
               </div>
 
               {/* Method Selector */}
-              <div className="flex bg-gray-100 p-1 rounded-lg mb-6">
+              <div className="flex bg-gray-100 p-1 rounded-lg mb-6 gap-1">
                 <button
                   onClick={() => setSelectedMethod('mpesa')}
                   className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${selectedMethod === 'mpesa' ? 'bg-white shadow text-green-600' : 'text-gray-500 hover:text-gray-700'}`}
@@ -648,9 +658,15 @@ const Payments = () => {
                 </button>
                 <button
                   onClick={() => setSelectedMethod('bank')}
-                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${selectedMethod === 'bank' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${selectedMethod === 'bank' ? 'bg-white shadow text-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   Bank Transfer
+                </button>
+                <button
+                  onClick={() => setSelectedMethod('cash')}
+                  className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${selectedMethod === 'cash' ? 'bg-white shadow text-purple-600' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  Cash
                 </button>
               </div>
 
@@ -694,7 +710,7 @@ const Payments = () => {
                     You will receive an M-PESA prompt on your phone.
                   </p>
                 </form>
-              ) : (
+              ) : selectedMethod === 'bank' ? (
                 <form onSubmit={handleBankTransfer} className="space-y-4">
                   <div className="bg-gray-50 p-4 rounded-lg text-sm border border-gray-100">
                     <p className="font-bold text-gray-700">Bank Details:</p>
@@ -712,14 +728,14 @@ const Payments = () => {
                       placeholder="e.g. EBX-98234-JK"
                       value={bankReference}
                       onChange={(e) => setBankReference(e.target.value)}
-                      className="block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={processingPayment}
-                    className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${processingPayment ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                    className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${processingPayment ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'}`}
                   >
                     {processingPayment ? (
                       <>
@@ -732,6 +748,45 @@ const Payments = () => {
                   </button>
                   <p className="text-center text-xs text-gray-500">
                     Your payment will be verified by our team within 24 hours.
+                  </p>
+                </form>
+              ) : (
+                <form onSubmit={handleCashPayment} className="space-y-4">
+                  <div className="bg-purple-50 p-4 rounded-lg text-sm border border-purple-100">
+                    <p className="font-bold text-purple-700">Cash Payment Details:</p>
+                    <p className="text-purple-600 mt-2">Pay KES {paymentData.amount?.toLocaleString()} to the driver when they arrive.</p>
+                    <p className="text-purple-600 text-xs mt-2">The driver will provide you with a receipt.</p>
+                  </div>
+                  <div>
+                    <label htmlFor="cashNotes" className="block text-sm font-medium text-gray-700 mb-1">
+                      Special Instructions (Optional)
+                    </label>
+                    <textarea
+                      id="cashNotes"
+                      placeholder="e.g. I don't have exact change, need invoice, etc."
+                      value={cashNotes}
+                      onChange={(e) => setCashNotes(e.target.value)}
+                      rows="3"
+                      className="block w-full px-3 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={processingPayment}
+                    className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${processingPayment ? 'bg-purple-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
+                  >
+                    {processingPayment ? (
+                      <>
+                        <Loader className="w-5 h-5 animate-spin mr-2" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Confirm Cash Payment'
+                    )}
+                  </button>
+                  <p className="text-center text-xs text-gray-500">
+                    A receipt will be provided by the driver at service completion.
                   </p>
                 </form>
               )}
