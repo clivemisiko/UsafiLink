@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import { ArrowLeft, User, Mail, Phone, Lock, Shield, Save, X, UserPlus } from 'lucide-react';
 import { adminAPI } from '../../api/admin';
 import toast from 'react-hot-toast';
 
 const AddUser = () => {
     const navigate = useNavigate();
+    const { id } = useParams();
+    const isEditing = !!id;
     const [loading, setLoading] = useState(false);
+    const [pageLoading, setPageLoading] = useState(isEditing);
     const [formData, setFormData] = useState({
         username: '',
         email: '',
@@ -17,6 +20,34 @@ const AddUser = () => {
         role: 'customer',
         is_active: true
     });
+
+    useEffect(() => {
+        if (isEditing) {
+            loadUser();
+        }
+    }, [id]);
+
+    const loadUser = async () => {
+        try {
+            const user = await adminAPI.getUser(id);
+            setFormData({
+                username: user.username,
+                email: user.email,
+                password: '', // Don't load password
+                first_name: user.first_name || '',
+                last_name: user.last_name || '',
+                phone_number: user.phone_number || '',
+                role: user.role,
+                is_active: user.is_active
+            });
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to load user');
+            navigate('/admin/users');
+        } finally {
+            setPageLoading(false);
+        }
+    };
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -29,24 +60,52 @@ const AddUser = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+<<<<<<< HEAD
         if (formData.password.length < 8) {
+=======
+        // When editing, password is optional and empty string means don't update it
+        if (!isEditing && formData.password.length < 8) {
+            toast.error('Password is too short! It must contain at least 8 characters.');
+            return;
+        }
+
+        if (isEditing && formData.password && formData.password.length < 8) {
+>>>>>>> 89df15ec222ddb2aab9a75b82ba75e9a6e95bbac
             toast.error('Password is too short! It must contain at least 8 characters.');
             return;
         }
 
         setLoading(true);
         try {
-            await adminAPI.createUser(formData);
-            toast.success('User created successfully');
+            if (isEditing) {
+                // Remove empty password when editing
+                const updateData = { ...formData };
+                if (!updateData.password) {
+                    delete updateData.password;
+                }
+                await adminAPI.updateUser(id, updateData);
+                toast.success('User updated successfully');
+            } else {
+                await adminAPI.createUser(formData);
+                toast.success('User created successfully');
+            }
             navigate('/admin/users');
         } catch (error) {
             console.error(error);
-            const errorMsg = error.response?.data ? Object.values(error.response.data)[0][0] : 'Failed to create user';
+            const errorMsg = error.response?.data ? Object.values(error.response.data)[0][0] : 'Failed to save user';
             toast.error(errorMsg);
         } finally {
             setLoading(false);
         }
     };
+
+    if (pageLoading) {
+        return (
+            <div className="h-96 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -60,8 +119,12 @@ const AddUser = () => {
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
                     <div>
-                        <h1 className="text-3xl font-black text-gray-900 tracking-tight">Create New User</h1>
-                        <p className="text-gray-500 font-medium">Add a new account to the system</p>
+                        <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+                            {isEditing ? 'Edit User' : 'Create New User'}
+                        </h1>
+                        <p className="text-gray-500 font-medium">
+                            {isEditing ? 'Update user account details' : 'Add a new account to the system'}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -86,8 +149,13 @@ const AddUser = () => {
                                         type="text"
                                         name="username"
                                         required
+                                        disabled={isEditing}
                                         placeholder="johndoe"
+<<<<<<< HEAD
                                         className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border-none rounded-2xl font-bold text-gray-900 focus:ring-4 focus:ring-emerald-500/10 placeholder:text-gray-300 transition-all"
+=======
+                                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border-none rounded-2xl font-bold text-gray-900 focus:ring-4 focus:ring-emerald-500/10 placeholder:text-gray-300 transition-all disabled:opacity-60"
+>>>>>>> 89df15ec222ddb2aab9a75b82ba75e9a6e95bbac
                                         value={formData.username}
                                         onChange={handleChange}
                                     />
@@ -155,8 +223,13 @@ const AddUser = () => {
                                         type="email"
                                         name="email"
                                         required
+                                        disabled={isEditing}
                                         placeholder="john@example.com"
+<<<<<<< HEAD
                                         className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border-none rounded-2xl font-bold text-gray-900 focus:ring-4 focus:ring-emerald-500/10 placeholder:text-gray-300 transition-all"
+=======
+                                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border-none rounded-2xl font-bold text-gray-900 focus:ring-4 focus:ring-emerald-500/10 placeholder:text-gray-300 transition-all disabled:opacity-60"
+>>>>>>> 89df15ec222ddb2aab9a75b82ba75e9a6e95bbac
                                         value={formData.email}
                                         onChange={handleChange}
                                     />
@@ -179,14 +252,21 @@ const AddUser = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Password</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">
+                                    Password {isEditing && <span className="text-gray-300">(Leave empty to keep current)</span>}
+                                </label>
                                 <div className="relative group">
                                     <Lock className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-600 transition-colors" />
                                     <input
                                         type="password"
                                         name="password"
+<<<<<<< HEAD
                                         required
                                         placeholder="••••••••"
+=======
+                                        required={!isEditing}
+                                        placeholder={isEditing ? "Leave empty for no change" : "••••••••"}
+>>>>>>> 89df15ec222ddb2aab9a75b82ba75e9a6e95bbac
                                         className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border-none rounded-2xl font-bold text-gray-900 focus:ring-4 focus:ring-emerald-500/10 placeholder:text-gray-300 transition-all"
                                         value={formData.password}
                                         onChange={handleChange}
@@ -229,7 +309,7 @@ const AddUser = () => {
                             ) : (
                                 <UserPlus className="w-4 h-4" />
                             )}
-                            <span>Create User Record</span>
+                            <span>{isEditing ? 'Update User' : 'Create User Record'}</span>
                         </button>
                     </div>
                 </form>

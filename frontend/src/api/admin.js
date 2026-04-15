@@ -45,6 +45,11 @@ export const adminAPI = {
     return response.data;
   },
 
+  deleteUser: async (id) => {
+    const response = await axiosInstance.delete(`/admin/users/${id}/`);
+    return response.data;
+  },
+
   // Bookings
   getBookings: async (params = {}) => {
     const response = await axiosInstance.get('/admin/bookings/', { params });

@@ -1,0 +1,12 @@
+# Railway Deployment Configuration
+# This file helps Railway properly build and deploy the Django application
+
+# Specify Python version
+# Handled via runtime.txt
+
+# Build environment variables (only used during build)
+PORT=8000
+DJANGO_SETTINGS_MODULE=backend.settings
+
+# Ensure collectstatic runs without errors during build
+DISABLE_COLLECTSTATIC=0

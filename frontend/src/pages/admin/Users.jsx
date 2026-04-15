@@ -18,7 +18,8 @@ import {
   UserX,
   CreditCard,
   ExternalLink,
-  Smartphone
+  Smartphone,
+  Trash2
 } from 'lucide-react';
 import { adminAPI } from '../../api/admin';
 import toast from 'react-hot-toast';
@@ -146,6 +147,23 @@ const AdminUsers = () => {
     setShowActions(null);
   };
 
+<<<<<<< HEAD
+=======
+  const handleDeleteUser = async (userId, userName) => {
+    if (window.confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) {
+      try {
+        await adminAPI.deleteUser(userId);
+        toast.success('User deleted successfully');
+        fetchUsers();
+        setShowActions(null);
+      } catch (error) {
+        toast.error('Failed to delete user');
+        console.error(error);
+      }
+    }
+  };
+
+>>>>>>> 89df15ec222ddb2aab9a75b82ba75e9a6e95bbac
   const handleExport = () => {
     if (filteredUsers.length === 0) {
       toast.error("No data to export");
@@ -372,6 +390,12 @@ const AdminUsers = () => {
                                 className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
                               >
                                 <ExternalLink className="w-4 h-4" /> View Details
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(u.id, u.username)}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                              >
+                                <Trash2 className="w-4 h-4" /> Delete User
                               </button>
                             </div>
                           )}

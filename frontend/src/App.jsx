@@ -104,6 +104,7 @@ const AppContent = () => {
           <Route index element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="users/new" element={<AdminAddUser />} />
+          <Route path="users/edit/:id" element={<AdminAddUser />} />
           <Route path="drivers" element={<AdminUsers />} />
           <Route path="bookings" element={<AdminBookings />} />
           <Route path="payments" element={<AdminPayments />} />
