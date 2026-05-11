@@ -1,5 +1,17 @@
 from rest_framework import serializers
-from .models import Booking, Rating
+from .models import Booking, Rating, DriverSlot
+from users.admin_panel.models import Dispute
+
+
+class CustomerDisputeSerializer(serializers.ModelSerializer):
+    """Lightweight dispute serializer for customer view"""
+    booking_id = serializers.ReadOnlyField(source='booking.id')
+    booking = serializers.PrimaryKeyRelatedField(queryset=Dispute._meta.get_field('booking').related_model.objects.all(), write_only=True)
+
+    class Meta:
+        model = Dispute
+        fields = ['id', 'booking', 'booking_id', 'reason', 'status', 'resolution', 'created_at', 'updated_at']
+        read_only_fields = ['status', 'resolution', 'created_at', 'updated_at', 'raised_by']
 
 class RatingSerializer(serializers.ModelSerializer):
     """Basic rating serializer for customer view"""
@@ -52,6 +64,37 @@ class DriverRatingsStatsSerializer(serializers.Serializer):
     one_star = serializers.IntegerField()
     recent_ratings = serializers.ListField()
 
+class DriverSlotSerializer(serializers.ModelSerializer):
+    """Serializer for viewing driver slots (customers and drivers)"""
+    driver_name = serializers.ReadOnlyField(source='driver.get_full_name')
+    driver_phone = serializers.ReadOnlyField(source='driver.phone_number')
+    driver_id = serializers.ReadOnlyField(source='driver.id')
+    label = serializers.ReadOnlyField()
+    is_available = serializers.ReadOnlyField()
+
+    class Meta:
+        model = DriverSlot
+        fields = [
+            'id', 'driver', 'driver_id', 'driver_name', 'driver_phone',
+            'date', 'start_time', 'end_time', 'status', 'note',
+            'label', 'is_available', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['status', 'created_at', 'updated_at']
+
+
+class DriverSlotCreateSerializer(serializers.ModelSerializer):
+    """Serializer for drivers creating their own slots"""
+    class Meta:
+        model = DriverSlot
+        fields = ['id', 'date', 'start_time', 'end_time', 'note']
+        read_only_fields = ['status']
+
+    def validate(self, data):
+        if data['start_time'] >= data['end_time']:
+            raise serializers.ValidationError("Start time must be before end time.")
+        return data
+
+
 class BookingSerializer(serializers.ModelSerializer):
     payment_status = serializers.SerializerMethodField()
     payment_id = serializers.SerializerMethodField()
@@ -60,15 +103,19 @@ class BookingSerializer(serializers.ModelSerializer):
     driver_name = serializers.ReadOnlyField(source='driver.get_full_name')
     driver_phone = serializers.ReadOnlyField(source='driver.phone_number')
     rating_data = serializers.SerializerMethodField()
-    
+
     # New Uber-like fields
     current_notified_driver_name = serializers.SerializerMethodField()
     driver_requests_count = serializers.SerializerMethodField()
     is_current_user_notified = serializers.SerializerMethodField()
 
+    # Slot-based fields
+    slot_data = serializers.SerializerMethodField()
+    slot_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+
     class Meta:
         model = Booking
-        fields = '__all__'
+        exclude = ('slot',)
         read_only_fields = ('customer', 'driver', 'status', 'created_at', 'current_notified_driver')
 
     def get_payment_status(self, obj):
@@ -105,6 +152,17 @@ class BookingSerializer(serializers.ModelSerializer):
         if request and hasattr(request, 'user'):
             return obj.current_notified_driver == request.user
         return False
+
+    def get_slot_data(self, obj):
+        """Get slot details if booking is linked to a slot"""
+        if obj.slot:
+            return DriverSlotSerializer(obj.slot).data
+        return None
+
+    def create(self, validated_data):
+        # Remove slot_id from validated_data as it's not a model field
+        validated_data.pop('slot_id', None)
+        return super().create(validated_data)
 
     def to_representation(self, instance):
         res = super().to_representation(instance)

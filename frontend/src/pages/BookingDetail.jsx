@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Calendar, Clock, DollarSign, User, Phone, Loader } from 'lucide-react';
 import { bookingsAPI } from '../api/bookings';
+import { trackingAPI } from '../api/tracking';
+import DriverRouteMap from '../components/DriverRouteMap';
 import axiosInstance, { API_BASE_URL } from '../api/axiosConfig';
 import toast from 'react-hot-toast';
 
@@ -12,6 +14,8 @@ const BookingDetail = () => {
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(0);
   const [ratingComment, setRatingComment] = useState('');
+  const [driverLocation, setDriverLocation] = useState(null);
+  const [trackingLoading, setTrackingLoading] = useState(false);
 
   useEffect(() => {
     fetchBookingDetails();
@@ -40,6 +44,38 @@ const BookingDetail = () => {
       setLoading(false);
     }
   };
+
+  const fetchDriverLocation = async (driverId) => {
+    if (!driverId) return;
+    setTrackingLoading(true);
+    try {
+      const location = await trackingAPI.getDriverLocation(driverId);
+      setDriverLocation(location);
+    } catch (error) {
+      console.error('Error fetching driver location:', error);
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let intervalId;
+    const driverId = booking?.driver?.id || booking?.driver;
+    const isTrackingStatus = ['accepted', 'started', 'arrived'].includes(booking?.status);
+
+    if (driverId && isTrackingStatus) {
+      fetchDriverLocation(driverId);
+      intervalId = window.setInterval(() => fetchDriverLocation(driverId), 15000);
+    } else {
+      setDriverLocation(null);
+    }
+
+    return () => {
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, [booking]);
 
   const handleCancelBooking = async () => {
     if (window.confirm('Are you sure you want to cancel this booking?')) {
@@ -126,7 +162,7 @@ const BookingDetail = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <Link
@@ -150,7 +186,7 @@ const BookingDetail = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Booking Details */}
           <div className="lg:col-span-2 space-y-6">
@@ -223,6 +259,35 @@ const BookingDetail = () => {
                 )}
               </div>
             </div>
+
+            {booking.driver && ['accepted', 'started', 'arrived'].includes(booking.status) && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-800">Track Your Driver</h2>
+                    <p className="text-sm text-gray-500">Live driver location updates while your service is in progress.</p>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-500">Refreshes automatically</span>
+                </div>
+                {trackingLoading && !driverLocation ? (
+                  <div className="rounded-3xl border border-dashed border-emerald-300 bg-emerald-50 p-6 text-center text-sm text-emerald-800">
+                    Loading live driver location...
+                  </div>
+                ) : driverLocation ? (
+                  <DriverRouteMap
+                    driverLocation={{ lat: driverLocation.latitude, lng: driverLocation.longitude }}
+                    customerLocation={{ lat: booking.latitude, lng: booking.longitude }}
+                    driverName={booking.driver_name || 'Driver'}
+                    customerName={booking.customer_name || 'You'}
+                    customerAddress={booking.location_name || booking.address || 'Customer location'}
+                  />
+                ) : (
+                  <div className="rounded-3xl border border-dashed border-yellow-300 bg-yellow-50 p-6 text-center text-sm text-yellow-700">
+                    Driver location is not available yet. Please wait while we fetch the latest position.
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Schedule Card */}
             <div className="bg-white rounded-lg shadow p-6">

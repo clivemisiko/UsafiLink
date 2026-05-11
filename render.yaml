@@ -14,6 +14,8 @@ services:
         value: "false"
       - key: CELERY_TASK_ALWAYS_EAGER
         value: "true"
+      - key: INTASEND_ENV
+        value: "production"
     routes:
       - type: http
         source: /

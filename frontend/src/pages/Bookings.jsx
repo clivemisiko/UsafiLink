@@ -32,9 +32,10 @@ const Bookings = () => {
   const fetchBookings = async () => {
     try {
       const data = await bookingsAPI.getUserBookings();
-      console.log('📚 Bookings Data:', data);
-      setBookings(data);
-      setFilteredBookings(data);
+      const bookingsData = Array.isArray(data) ? data : data.results || data.data || [];
+      console.log('📚 Bookings Data:', bookingsData);
+      setBookings(bookingsData);
+      setFilteredBookings(bookingsData);
     } catch (error) {
       toast.error('Failed to fetch bookings');
       console.error(error);
@@ -155,146 +156,84 @@ const Bookings = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--parchment)]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--sage)]"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="md:flex md:items-center md:justify-between">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-3xl font-bold text-gray-900">My Bookings</h1>
-              <p className="mt-1 text-sm text-gray-600">
-                Manage all your exhauster service bookings
-              </p>
+    <div className="min-h-screen bg-[var(--parchment)]">
+      {/* Header */}
+      <header className="bg-[var(--white)] border-b border-gray-200">
+        <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-[var(--ink)]">My Bookings</h1>
+              <p className="text-sm text-[var(--stone)]">Manage your exhauster service bookings</p>
             </div>
-            <div className="mt-4 flex md:mt-0 md:ml-4">
-              <Link
-                to="/bookings/new"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-              >
-                <Calendar className="mr-2 h-4 w-4" />
-                New Booking
-              </Link>
-            </div>
+            <Link
+              to="/bookings/new"
+              className="inline-flex items-center px-4 py-2 bg-[var(--sage)] text-[var(--white)] rounded-lg hover:bg-[var(--sage-light)] transition font-bold"
+            >
+              <Calendar className="mr-2 h-4 w-4" />
+              New Booking
+            </Link>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+      <main className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Stats - Compact Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <div className="bg-[var(--white)] rounded-lg p-4 border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="bg-[var(--sage-muted)] p-2 rounded-lg">
+                <Calendar className="h-5 w-5 text-[var(--sage)]" />
               </div>
-              <input
-                type="text"
-                placeholder="Search bookings..."
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
-              <select
-                className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm rounded-md"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="all">All Statuses</option>
-                <option value="searching_driver">Searching Driver</option>
-                <option value="pending">Pending</option>
-                <option value="accepted">Accepted</option>
-                <option value="started">On the Way</option>
-                <option value="arrived">Arrived / Working</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-
-            <div className="flex items-end">
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setStatusFilter('all');
-                }}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-              >
-                <Filter className="mr-2 h-4 w-4" />
-                Clear Filters
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="p-2 bg-emerald-100 rounded-lg">
-                  <Calendar className="h-6 w-6 text-emerald-600" />
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-semibold text-gray-900">{bookings.length}</p>
+              <div>
+                <p className="text-xs font-bold text-[var(--stone)] uppercase">Total</p>
+                <p className="text-xl font-bold text-[var(--ink)]">{bookings.length}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Clock className="h-6 w-6 text-yellow-600" />
-                </div>
+          <div className="bg-[var(--white)] rounded-lg p-4 border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="bg-[var(--sand)] p-2 rounded-lg">
+                <Clock className="h-5 w-5 text-[var(--rust)]" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-semibold text-gray-900">
+              <div>
+                <p className="text-xs font-bold text-[var(--stone)] uppercase">Pending</p>
+                <p className="text-xl font-bold text-[var(--ink)]">
                   {bookings.filter(b => ['pending', 'payment_pending'].includes(b.status)).length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                </div>
+          <div className="bg-[var(--white)] rounded-lg p-4 border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="bg-[var(--sage-muted)] p-2 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-[var(--sage)]" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Completed</p>
-                <p className="text-2xl font-semibold text-gray-900">
+              <div>
+                <p className="text-xs font-bold text-[var(--stone)] uppercase">Completed</p>
+                <p className="text-xl font-bold text-[var(--ink)]">
                   {bookings.filter(b => b.status === 'completed').length}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <DollarSign className="h-6 w-6 text-purple-600" />
-                </div>
+          <div className="bg-[var(--white)] rounded-lg p-4 border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="bg-[var(--cream)] p-2 rounded-lg">
+                <DollarSign className="h-5 w-5 text-[var(--ink)]" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Spent</p>
-                <p className="text-2xl font-semibold text-gray-900">
+              <div>
+                <p className="text-xs font-bold text-[var(--stone)] uppercase">Spent</p>
+                <p className="text-xl font-bold text-[var(--ink)]">
                   {formatCurrency(bookings
                     .filter(b => b.payment_status === 'paid')
                     .reduce((sum, b) => {
@@ -308,112 +247,117 @@ const Bookings = () => {
           </div>
         </div>
 
+        {/* Filter Bar - Compact */}
+        <div className="bg-[var(--white)] rounded-lg border border-gray-200 p-4 mb-6 flex flex-wrap gap-3 items-center">
+          <div className="flex-1 min-w-[200px] relative">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-[var(--stone)]" />
+            <input
+              type="text"
+              placeholder="Search location, service..."
+              className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[var(--sage)] focus:border-[var(--sage)] outline-none"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <select
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[var(--sage)] focus:border-[var(--sage)] outline-none"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="accepted">Accepted</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          {(searchTerm || statusFilter !== 'all') && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+              }}
+              className="px-3 py-2 text-[var(--ink)] bg-[var(--cream)] hover:bg-[var(--sand)] rounded-lg text-sm font-bold transition"
+            >
+              Clear
+            </button>
+          )}
+          <button
+            onClick={handleExportBookings}
+            className="px-3 py-2 text-[var(--sage)] bg-[var(--sage-muted)] hover:bg-[var(--sage-light)]/20 rounded-lg text-sm font-bold transition flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </button>
+        </div>
+
         {/* Bookings List */}
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-          {filteredBookings.length === 0 ? (
-            <div className="text-center py-12">
-              <Calendar className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No bookings</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {searchTerm || statusFilter !== 'all'
-                  ? 'No bookings match your filters'
-                  : 'Get started by creating a new booking'}
-              </p>
-              <div className="mt-6">
-                <Link
-                  to="/bookings/new"
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-                >
-                  <Calendar className="mr-2 -ml-1 h-5 w-5" />
-                  New Booking
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-200">
-              {filteredBookings.map((booking) => (
-                <li key={booking.id}>
-                  <div className="px-4 py-4 sm:px-6 hover:bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0">
-                            <div className={`p-2 rounded-lg ${getStatusColor(booking.status).replace('bg-', 'bg-').split(' ')[0]}`}>
-                              {getStatusIcon(booking.status)}
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="flex items-center">
-                              <p className="text-sm font-medium text-gray-900">
-                                {booking.service_type?.replace('_', ' ').toUpperCase()} - {booking.tank_size}L
-                              </p>
-                              <span className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
-                                {booking.status?.replace('_', ' ').charAt(0).toUpperCase() + booking.status?.replace('_', ' ').slice(1)}
-                              </span>
-                              {booking.status === 'completed' && booking.payment_status !== 'paid' && (
-                                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                  Incomplete Payment
-                                </span>
-                              )}
-                              {booking.payment_status === 'paid' && (
-                                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  Paid
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div className="flex items-center text-sm text-gray-500">
-                                <MapPin className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                                <span className="truncate">{booking.location_name}</span>
-                              </div>
-                              <div className="flex items-center text-sm text-gray-500">
-                                <Calendar className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                                <span>{formatDate(booking.scheduled_date)}</span>
-                              </div>
-                              <div className="flex items-center text-sm text-gray-500">
-                                <Clock className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                                <span>{formatTime(booking.scheduled_date)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+        {filteredBookings.length === 0 ? (
+          <div className="text-center py-16 bg-[var(--white)] rounded-lg border border-gray-200">
+            <Calendar className="mx-auto h-12 w-12 text-[var(--stone)]" />
+            <h3 className="mt-2 text-sm font-bold text-[var(--ink)]">No bookings found</h3>
+            <p className="mt-1 text-sm text-[var(--stone)] mb-4">
+              {searchTerm || statusFilter !== 'all'
+                ? 'No bookings match your filters'
+                : 'Create a new booking to get started'}
+            </p>
+            <Link
+              to="/bookings/new"
+              className="inline-flex items-center px-4 py-2 bg-[var(--sage)] text-[var(--white)] rounded-lg hover:bg-[var(--sage-light)] font-bold text-sm"
+            >
+              <Calendar className="mr-2 h-4 w-4" />
+              New Booking
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredBookings.map((booking) => (
+              <div
+                key={booking.id}
+                className="bg-[var(--white)] rounded-lg border border-gray-200 hover:border-[var(--sage)] hover:shadow-md transition p-4"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  {/* Left Side - Booking Details */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-sm font-bold text-[var(--ink)]">
+                        {booking.location_name || 'No location'}
+                      </h3>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${getStatusColor(booking.status)}`}>
+                        {getStatusIcon(booking.status)}
+                        {booking.status.replace('_', ' ').toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-4 text-xs text-[var(--stone)]">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {formatDate(booking.scheduled_date)}
                       </div>
-                      <div className="ml-4 flex-shrink-0 flex flex-col items-end">
-                        <p className="text-sm font-medium text-gray-900">
-                          {formatCurrency(booking.estimated_price || booking.final_price || 0)}
-                        </p>
-                        <div className="mt-2 flex space-x-2">
-                          <Link
-                            to={`/bookings/${booking.id}`}
-                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-emerald-700 bg-emerald-100 hover:bg-emerald-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-                          >
-                            View
-                          </Link>
-                          {booking.status === 'pending' && (
-                            <button
-                              onClick={() => handleCancelBooking(booking.id)}
-                              className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatTime(booking.scheduled_date)}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {booking.service_type?.replace('_', ' ') || 'N/A'}
                       </div>
                     </div>
                   </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
 
-        {/* Export Button */}
-        {filteredBookings.length > 0 && (
-          <div className="mt-6 flex justify-end">
-            <button onClick={handleExportBookings} className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500">
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </button>
+                  {/* Right Side - Price & Action */}
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-[var(--ink)]">
+                      {formatCurrency(booking.final_price || booking.estimated_price || 0)}
+                    </p>
+                    <Link
+                      to={`/bookings/${booking.id}`}
+                      className="mt-2 inline-flex items-center px-3 py-1.5 text-sm font-bold text-[var(--sage)] bg-[var(--sage-muted)] hover:bg-[var(--sage-light)]/20 rounded-lg transition"
+                    >
+                      View Details →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </main>

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { Toaster } from 'react-hot-toast';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminUsers from './pages/admin/Users';
+import AdminDrivers from './pages/admin/Drivers';
 import AdminBookings from './pages/admin/Bookings';
 import AdminDisputes from './pages/admin/Disputes';
 import AdminLogs from './pages/admin/Logs';
@@ -39,6 +40,18 @@ const PrivateRoute = ({ children, allowedRoles = [] }) => {
 
   if (!token) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Check license expiry for drivers
+  if (userRole === 'driver') {
+    const licenseExpiry = localStorage.getItem('license_expiry_date');
+    if (licenseExpiry) {
+      const expiryDate = new Date(licenseExpiry);
+      if (expiryDate < new Date()) {
+        localStorage.clear();
+        return <Navigate to="/login" state={{ licenseExpired: true }} replace />;
+      }
+    }
   }
 
   // Treat 'user' as valid if allowedRoles includes 'customer'
@@ -83,7 +96,7 @@ const AppContent = () => {
   useIdleTimer(30 * 60 * 1000); // 30 minutes idle timeout for Admins
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="min-h-screen bg-parchment text-ink">
       <Toaster position="top-right" />
       <Routes>
         {/* Public */}
@@ -105,7 +118,7 @@ const AppContent = () => {
           <Route path="users" element={<AdminUsers />} />
           <Route path="users/new" element={<AdminAddUser />} />
           <Route path="users/edit/:id" element={<AdminAddUser />} />
-          <Route path="drivers" element={<AdminUsers />} />
+          <Route path="drivers" element={<AdminDrivers />} />
           <Route path="bookings" element={<AdminBookings />} />
           <Route path="payments" element={<AdminPayments />} />
           <Route path="vehicles" element={<Vehicles />} />

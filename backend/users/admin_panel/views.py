@@ -8,6 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from users.models import User
+from tracking.models import DriverLocation
+from tracking.serializers import DriverLocationSerializer
 from bookings.models import Booking
 from payments.models import Payment
 from .models import SystemLog, Dispute, Announcement
@@ -19,6 +21,7 @@ from .serializers import (
     AnnouncementSerializer,
     SystemLogSerializer
 )
+from .services import log_system_action
 
 # In users/admin_panel/views.py, update the permission classes
 from rest_framework.permissions import IsAuthenticated
@@ -66,7 +69,7 @@ class AdminDashboardView(APIView):
         # Rating stats
         from bookings.models import Rating
         from django.db.models import Avg
-        avg_rating = Rating.objects.aggregate(Avg('score'))['score__avg'] or 0.0
+        avg_rating = Rating.objects.aggregate(Avg('score'))['score__avg'] or 5.0
         
         # Recent activities
         recent_logs = SystemLog.objects.select_related('user').order_by('-created_at')[:10]
@@ -128,12 +131,64 @@ class AdminUserViewSet(viewsets.ModelViewSet):
             )
         
         return queryset
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+        ip_address = self.request.META.get('HTTP_X_FORWARDED_FOR', self.request.META.get('REMOTE_ADDR'))
+        log_system_action(
+            action='user_created',
+            user=self.request.user,
+            details={
+                'created_user_id': user.id,
+                'created_user_email': user.email,
+                'created_user_role': user.role,
+            },
+            ip_address=ip_address,
+        )
+
+    def perform_update(self, serializer):
+        user = serializer.save()
+        ip_address = self.request.META.get('HTTP_X_FORWARDED_FOR', self.request.META.get('REMOTE_ADDR'))
+        log_system_action(
+            action='user_updated',
+            user=self.request.user,
+            details={
+                'updated_user_id': user.id,
+                'updated_user_email': user.email,
+                'updated_user_role': user.role,
+            },
+            ip_address=ip_address,
+        )
+
+    def perform_destroy(self, instance):
+        log_system_action(
+            action='user_deleted',
+            user=self.request.user,
+            details={
+                'deleted_user_id': instance.id,
+                'deleted_user_email': instance.email,
+                'deleted_user_role': instance.role,
+            },
+            ip_address=self.request.META.get('HTTP_X_FORWARDED_FOR', self.request.META.get('REMOTE_ADDR')),
+        )
+        instance.delete()
     
     @action(detail=True, methods=['post'])
     def activate(self, request, pk=None):
         user = self.get_object()
         user.is_active = True
         user.save()
+        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+        log_system_action(
+            action='user_updated',
+            user=request.user,
+            details={
+                'user_id': user.id,
+                'action': 'activate',
+                'is_active': user.is_active,
+            },
+            ip_address=ip_address,
+        )
         return Response({'status': 'User activated'})
     
     @action(detail=True, methods=['post'])
@@ -141,6 +196,17 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         user = self.get_object()
         user.is_active = False
         user.save()
+        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+        log_system_action(
+            action='user_updated',
+            user=request.user,
+            details={
+                'user_id': user.id,
+                'action': 'deactivate',
+                'is_active': user.is_active,
+            },
+            ip_address=ip_address,
+        )
         return Response({'status': 'User deactivated'})
     
     @action(detail=True, methods=['post'])
@@ -151,8 +217,20 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         if new_role not in ['customer', 'driver', 'admin']:
             return Response({'error': 'Invalid role'}, status=400)
         
+        previous_role = user.role
         user.role = new_role
         user.save()
+        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+        log_system_action(
+            action='user_updated',
+            user=request.user,
+            details={
+                'user_id': user.id,
+                'previous_role': previous_role,
+                'new_role': new_role,
+            },
+            ip_address=ip_address,
+        )
         return Response({'status': f'Role changed to {new_role}'})
 
 class AdminBookingViewSet(viewsets.ReadOnlyModelViewSet):
@@ -176,6 +254,57 @@ class AdminBookingViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(created_at__lte=date_to)
             
         return queryset
+
+class DriverLocationViewSet(viewsets.ViewSet):
+    """Admin view for all driver locations"""
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    
+    def list(self, request):
+        """Get all active driver locations for live map"""
+        online_drivers = User.objects.filter(
+            role='driver',
+            is_online=True,
+            is_active=True,
+            location__isnull=False
+        ).select_related('location')
+        
+        locations = []
+        for driver in online_drivers:
+            location_data = DriverLocationSerializer(driver.location).data
+            location_data['driver_name'] = driver.get_full_name() or driver.username
+            location_data['driver_id'] = driver.id
+            location_data['driver_phone'] = driver.phone_number
+            location_data['vehicle_info'] = getattr(driver, 'vehicle_info', None)
+            locations.append(location_data)
+        
+        return Response({
+            'count': len(locations),
+            'locations': locations
+        })
+    
+    @action(detail=False, methods=['get'])
+    def all_drivers(self, request):
+        """Get all drivers with their locations (for admin map)"""
+        drivers = User.objects.filter(
+            role='driver',
+            is_active=True,
+            location__isnull=False
+        ).select_related('location')
+        
+        locations = []
+        for driver in drivers:
+            location_data = DriverLocationSerializer(driver.location).data
+            location_data['driver_name'] = driver.get_full_name() or driver.username
+            location_data['driver_id'] = driver.id
+            location_data['driver_phone'] = driver.phone_number
+            location_data['is_online'] = driver.is_online
+            location_data['is_approved'] = getattr(driver, 'is_driver_approved', False)
+            locations.append(location_data)
+        
+        return Response({
+            'count': len(locations),
+            'locations': locations
+        })
 
 class DisputeViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
@@ -205,6 +334,21 @@ class DisputeViewSet(viewsets.ModelViewSet):
         dispute.resolved_at = timezone.now()
         dispute.save()
         
+        # Log the action
+        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+        log_system_action(
+            action='booking_updated',
+            user=request.user,
+            details={
+                'dispute_id': dispute.id,
+                'booking_id': dispute.booking.id,
+                'action': 'resolve_dispute',
+                'resolution': resolution,
+                'raised_by': dispute.raised_by.get_full_name() if dispute.raised_by else 'Unknown'
+            },
+            ip_address=ip_address,
+        )
+        
         return Response({'status': 'Dispute resolved'})
     
     @action(detail=True, methods=['post'])
@@ -214,6 +358,20 @@ class DisputeViewSet(viewsets.ModelViewSet):
         dispute.resolved_by = request.user
         dispute.resolved_at = timezone.now()
         dispute.save()
+        
+        # Log the action
+        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+        log_system_action(
+            action='booking_updated',
+            user=request.user,
+            details={
+                'dispute_id': dispute.id,
+                'booking_id': dispute.booking.id,
+                'action': 'dismiss_dispute',
+                'raised_by': dispute.raised_by.get_full_name() if dispute.raised_by else 'Unknown'
+            },
+            ip_address=ip_address,
+        )
         
         return Response({'status': 'Dispute dismissed'})
 

@@ -7,6 +7,7 @@ from rest_framework import generics, serializers
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.views import APIView
@@ -15,16 +16,19 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.db.models import Q
 from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, timedelta
 from django.conf import settings
 from .email_utils import send_verification_email, send_welcome_email, send_password_reset_email
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from google.auth.exceptions import TransportError
 
 User = get_user_model()
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         # We need to check if 2FA is required BEFORE issuing tokens
-        username = attrs.get(self.username_field)
+        username = attrs.get(self.username_field) or attrs.get('email')
         password = attrs.get('password')
         
         # Check if username exists as a username or an email
@@ -66,7 +70,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'role': self.user.role,
             'phone_number': self.user.phone_number,
             'is_email_verified': self.user.is_email_verified,
-            'is_two_factor_enabled': self.user.is_two_factor_enabled
+            'is_two_factor_enabled': self.user.is_two_factor_enabled,
+            'is_driver_approved': self.user.is_driver_approved
         }
         
         return data
@@ -105,7 +110,8 @@ class TwoFactorLoginView(APIView):
                             'username': user.username,
                             'email': user.email,
                             'role': user.role,
-                            'is_two_factor_enabled': True
+                            'is_two_factor_enabled': True,
+                            'is_driver_approved': user.is_driver_approved
                         }
                     })
                 else:
@@ -197,7 +203,11 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
         
         # Send verification email in background to avoid blocking the response
-        frontend_url = request.data.get('frontend_url', 'http://localhost:5173')
+        frontend_url = (
+            request.data.get('frontend_url')
+            or request.headers.get('Origin')
+            or getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        )
         threading.Thread(
             target=send_verification_email,
             args=(user, frontend_url),
@@ -283,7 +293,11 @@ class ResendVerificationEmailView(APIView):
             user.generate_verification_token()
             
             # Send verification email
-            frontend_url = request.data.get('frontend_url', 'http://localhost:5173')
+            frontend_url = (
+                request.data.get('frontend_url')
+                or request.headers.get('Origin')
+                or getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+            )
             send_verification_email(user, frontend_url)
             
             return Response({
@@ -309,7 +323,11 @@ class ForgotPasswordView(APIView):
 
     def post(self, request):
         email = request.data.get('email')
-        frontend_url = request.data.get('frontend_url', 'http://localhost:5173')
+        frontend_url = (
+            request.data.get('frontend_url')
+            or request.headers.get('Origin')
+            or getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        )
 
         if not email:
             return Response({'detail': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -434,32 +452,259 @@ class ToggleOnlineView(APIView):
         })
 
 
-class BootstrapAdminView(APIView):
-    permission_classes = [AllowAny]
+class ApproveDriverView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, user_id):
+        if request.user.role != 'admin' and not request.user.is_superuser:
+            return Response({'detail': 'Only admins can approve drivers.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            driver = User.objects.get(id=user_id, role='driver')
+        except User.DoesNotExist:
+            return Response({'detail': 'Driver not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        if driver.is_driver_approved:
+            return Response({'detail': 'Driver is already approved.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        driver.is_driver_approved = True
+        driver.save(update_fields=['is_driver_approved'])
+        
+        return Response({
+            'detail': f'Driver {driver.username} has been approved.',
+            'driver': {
+                'id': driver.id,
+                'username': driver.username,
+                'email': driver.email,
+                'is_driver_approved': driver.is_driver_approved
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class RejectDriverView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, user_id):
+        if request.user.role != 'admin' and not request.user.is_superuser:
+            return Response({'detail': 'Only admins can reject drivers.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            driver = User.objects.get(id=user_id, role='driver')
+        except User.DoesNotExist:
+            return Response({'detail': 'Driver not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        if driver.is_driver_approved:
+            return Response({'detail': 'Cannot reject an already approved driver.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Delete the driver account instead of just rejecting
+        driver.delete()
+        
+        return Response({
+            'detail': f'Driver {driver.username} has been rejected and removed.',
+        }, status=status.HTTP_200_OK)
+
+
+class PendingDriversView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
-        # Automatically run migrations if tables don't exist
-        try:
-            call_command('migrate', no_input=True)
-        except Exception as e:
-            print(f"Migration error: {e}")
-            
-        username = "admin"
-        email = "admin@usafilink.com"
-        password = "AdminChangeMe123!"
+        if request.user.role != 'admin' and not request.user.is_superuser:
+            return Response({'detail': 'Only admins can view pending drivers.'}, status=status.HTTP_403_FORBIDDEN)
         
-        if User.objects.filter(username=username).exists():
-            return Response({"detail": "Admin already exists."}, status=status.HTTP_400_BAD_REQUEST)
+        pending_drivers = User.objects.filter(role='driver', is_driver_approved=False).order_by('-date_joined')
+        serializer = UserSerializer(pending_drivers, many=True)
         
-        User.objects.create_superuser(
-            username=username,
-            email=email,
-            password=password,
-            role='admin',
-            is_email_verified=True
-        )
         return Response({
-            "detail": "Admin created successfully in the new database!",
-            "username": username,
-            "password": password
-        })
+            'pending_drivers': serializer.data,
+            'count': len(serializer.data)
+        }, status=status.HTTP_200_OK)
+
+
+class ClerkAuthView(APIView):
+    """
+    Authenticate with Clerk and return JWT tokens.
+    
+    The frontend sends Clerk user data after successful Clerk authentication.
+    This endpoint creates/updates the user in our database and returns JWT tokens.
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        """
+        Expected request body:
+        {
+            "clerk_id": "user_xxx_xxx",
+            "email": "user@example.com",
+            "first_name": "John",
+            "last_name": "Doe",
+            "role": "customer"  # optional, defaults to "customer"
+        }
+        """
+        clerk_id = request.data.get('clerk_id')
+        email = request.data.get('email')
+        first_name = request.data.get('first_name', '')
+        last_name = request.data.get('last_name', '')
+        role = request.data.get('role', 'customer')
+        
+        if not clerk_id or not email:
+            return Response({
+                'detail': 'clerk_id and email are required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate role
+        valid_roles = ['customer', 'driver', 'admin']
+        if role not in valid_roles:
+            role = 'customer'
+        
+        try:
+            # Try to get existing user by email
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Create new user
+            # Generate a unique username from email
+            base_username = email.split('@')[0]
+            username = base_username
+            counter = 1
+            while User.objects.filter(username=username).exists():
+                username = f"{base_username}{counter}"
+                counter += 1
+            
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                role=role,
+                is_email_verified=True  # Clerk already verified the email
+            )
+        
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'role': user.role,
+                'is_email_verified': user.is_email_verified,
+                'is_driver_approved': user.is_driver_approved,
+            }
+        }, status=status.HTTP_200_OK)
+
+class GoogleAuthView(APIView):
+    """
+    Authenticate with Google and return JWT tokens.
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        token = request.data.get('token')
+        role = request.data.get('role', 'customer')
+        driver_license_number = request.data.get('driver_license_number')
+        driver_license_expiry_date = request.data.get('driver_license_expiry_date')
+        
+        if not token:
+            return Response({'detail': 'Google token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        valid_roles = ['customer', 'driver', 'admin']
+        if role not in valid_roles:
+            role = 'customer'
+            
+        # Validate driver license if role is driver
+        if role == 'driver':
+            if not driver_license_number:
+                return Response({'detail': 'Driver license number is required for driver registration.'}, status=status.HTTP_400_BAD_REQUEST)
+            if not driver_license_expiry_date:
+                return Response({'detail': 'Driver license expiry date is required for driver registration.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Normalize expiry date string to a date object if needed
+            if isinstance(driver_license_expiry_date, str):
+                try:
+                    driver_license_expiry_date = datetime.fromisoformat(driver_license_expiry_date).date()
+                except ValueError:
+                    return Response({'detail': 'Driver license expiry date must be a valid ISO date (YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if license expiry is in the future
+            if driver_license_expiry_date <= timezone.now().date():
+                return Response({'detail': 'Driver license expiry date must be in the future.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if license number is already registered
+            existing_license = User.objects.filter(driver_license_number=driver_license_number).first()
+            if existing_license:
+                return Response({'detail': 'This driver license number is already registered.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            # Verify the token with Google
+            client_id = settings.GOOGLE_CLIENT_ID
+            idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), client_id)
+            
+            # Extract user info
+            email = idinfo.get('email')
+            first_name = idinfo.get('given_name', '')
+            last_name = idinfo.get('family_name', '')
+            
+            if not email:
+                return Response({'detail': 'No email provided in Google token.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            try:
+                # Get existing user by email
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                # Create new user
+                base_username = email.split('@')[0]
+                username = base_username
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}{counter}"
+                    counter += 1
+                
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                    role=role,
+                    driver_license_number=driver_license_number if role == 'driver' else None,
+                    driver_license_expiry_date=driver_license_expiry_date if role == 'driver' else None,
+                    is_driver_approved=role != 'driver',  # Drivers need admin approval
+                    is_email_verified=True
+                )
+                
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            
+            return Response({
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'role': user.role,
+                    'is_email_verified': user.is_email_verified,
+                    'is_driver_approved': user.is_driver_approved,
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except ValueError as e:
+            # Invalid token
+            return Response({'detail': 'Invalid Google token.'}, status=status.HTTP_400_BAD_REQUEST)
+        except TransportError as e:
+            # Network timeout or connectivity issue with Google OAuth servers
+            return Response(
+                {'detail': 'Failed to verify Google token. Please check your internet connection and try again.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        except Exception as e:
+            # Catch any other unexpected errors
+            return Response(
+                {'detail': 'An error occurred during Google authentication. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

@@ -91,18 +91,29 @@ class SMSService:
                 
             # Check if SMS was sent successfully
             recipient_data = recipients[0]
-            if recipient_data.get('status') == 'Success':
+            status = recipient_data.get('status')
+            
+            if status == 'Success':
                 return {
                     "success": True,
                     "message": "SMS sent successfully",
                     "cost": recipient_data.get('cost', ''),
                     "message_id": recipient_data.get('messageId', '')
                 }
+            elif status == 'UserInBlacklist':
+                # Phone number is blacklisted by Africa's Talking (sandbox restriction)
+                # Log warning but don't fail the task
+                logger.warning(f"Phone number {phone_number} is blacklisted by Africa's Talking. Please whitelist this number in your Africa's Talking dashboard.")
+                return {
+                    "success": False,
+                    "message": "SMS not sent - phone number is blacklisted",
+                    "error": "UserInBlacklist"
+                }
             else:
                 return {
                     "success": False,
                     "message": "Failed to send SMS",
-                    "error": recipient_data.get('status', 'Unknown error')
+                    "error": status or 'Unknown error'
                 }
                 
         except Exception as e:

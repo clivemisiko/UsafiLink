@@ -173,10 +173,10 @@ const AdminUsers = () => {
 
   const getRoleBadge = (role) => {
     switch (role) {
-      case 'admin': return 'bg-purple-50 text-purple-700 border-purple-100 ring-4 ring-purple-50/50';
-      case 'driver': return 'bg-emerald-50 text-emerald-700 border-emerald-100 ring-4 ring-emerald-50/50';
-      case 'customer': return 'bg-green-50 text-green-700 border-green-100 ring-4 ring-green-50/50';
-      default: return 'bg-gray-50 text-gray-700 border-gray-100';
+      case 'admin': return 'bg-violet-50 text-violet-700 border-violet-100';
+      case 'driver': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+      case 'customer': return 'bg-blue-50 text-blue-700 border-blue-100';
+      default: return 'bg-slate-50 text-slate-700 border-slate-100';
     }
   };
 
@@ -190,62 +190,67 @@ const AdminUsers = () => {
   if (loading && users.length === 0) {
     return (
       <div className="h-96 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sage"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-            {roleFilter === 'driver' ? 'Driver Management' : roleFilter === 'customer' ? 'Customer Management' : 'User Directory'}
-          </h1>
-          <p className="text-gray-500 font-medium mt-1">Manage, verify and monitor all accounts</p>
-        </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-sage flex items-center justify-center shadow-lg shadow-sage-muted">
+            <UsersIcon className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black text-slate-900">
+              {roleFilter === 'driver' ? 'Driver Management' : roleFilter === 'customer' ? 'Customer Management' : 'User Directory'}
+            </h1>
+            <p className="text-xs text-slate-500">Manage and monitor all accounts</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
           <button
             onClick={handleExport}
-            className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-500 hover:text-green-600 hover:bg-green-50 transition-all"
+            className="p-2.5 bg-white border border-slate-100 rounded-xl shadow-sm text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
             title="Export CSV"
           >
             <Download className="w-5 h-5" />
           </button>
           <button
             onClick={fetchUsers}
-            className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+            className="p-2.5 bg-white border border-slate-100 rounded-xl shadow-sm text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
             title="Refresh Data"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <Link
             to="/admin/users/new"
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-200 hover:bg-emerald-600 hover:shadow-emerald-200 transition-all"
+            className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-200 hover:bg-emerald-600 hover:shadow-emerald-200 transition-all text-sm"
           >
-            <Plus className="w-5 h-5" />
-            <span>Add New User</span>
+            <Plus className="w-4 h-4" />
+            <span>Add User</span>
           </Link>
         </div>
       </div>
 
       {/* Mini Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Accounts', value: stats.total, color: 'blue', icon: UsersIcon },
-          { label: 'Active Now', value: stats.active, color: 'green', icon: UserCheck },
-          { label: 'Verified Drivers', value: stats.drivers, color: 'indigo', icon: Shield },
-          { label: 'Total Customers', value: stats.customers, color: 'emerald', icon: Smartphone }
+          { label: 'Total', value: stats.total, color: 'blue', icon: UsersIcon },
+          { label: 'Active', value: stats.active, color: 'emerald', icon: UserCheck },
+          { label: 'Drivers', value: stats.drivers, color: 'violet', icon: Shield },
+          { label: 'Customers', value: stats.customers, color: 'amber', icon: Smartphone }
         ].map((stat, i) => (
-          <div key={i} className="bg-white p-6 rounded-[2rem] border border-gray-50 shadow-sm group hover:scale-[1.02] transition-all">
-            <div className="flex items-center gap-4">
-              <div className={`bg-${stat.color}-50 p-3 rounded-2xl text-${stat.color}-600`}>
-                <stat.icon className="w-6 h-6" />
+          <div key={i} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm group hover:scale-[1.02] transition-all">
+            <div className="flex items-center gap-3">
+              <div className={`bg-${stat.color}-50 p-2.5 rounded-xl text-${stat.color}-600`}>
+                <stat.icon className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{stat.label}</p>
-                <p className="text-2xl font-black text-gray-900">{stat.value}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{stat.label}</p>
+                <p className="text-xl font-black text-slate-900">{stat.value}</p>
               </div>
             </div>
           </div>
@@ -253,23 +258,23 @@ const AdminUsers = () => {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-gray-50 flex flex-col md:flex-row gap-4 items-center">
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-center">
         <div className="relative flex-1 w-full">
-          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search by name, email or phone..."
-            className="w-full pl-12 pr-4 py-3 bg-gray-50/50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-emerald-500/10 placeholder:text-gray-400"
+            className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-400"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-2xl">
+        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl">
           {['all', 'customer', 'driver', 'admin'].map((r) => (
             <button
               key={r}
               onClick={() => setRoleFilter(r)}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${roleFilter === r ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'
+              className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${roleFilter === r ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
             >
               {r}
@@ -277,7 +282,7 @@ const AdminUsers = () => {
           ))}
         </div>
         <select
-          className="bg-gray-50 border-none rounded-2xl px-4 py-3 text-sm font-bold text-gray-600 focus:ring-2 focus:ring-emerald-500/10"
+          className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-600 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
@@ -288,11 +293,11 @@ const AdminUsers = () => {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-50 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
           {filteredUsers.length > 0 ? (
             <table className="w-full text-left">
-              <thead className="bg-gray-50/50 text-gray-400 uppercase text-[10px] font-black tracking-widest">
+              <thead className="bg-slate-50/50 text-slate-500 uppercase text-[10px] font-bold tracking-wider">
                 <tr>
                   <th className="px-8 py-5">Identity</th>
                   <th className="px-8 py-5">Contact Details</th>
@@ -306,27 +311,27 @@ const AdminUsers = () => {
                   <tr key={u.id} className="hover:bg-emerald-50/10 transition-colors group">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-tr from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center text-slate-500 font-black relative overflow-hidden ring-4 ring-transparent group-hover:ring-emerald-50 transition-all">
+                        <div className="w-10 h-10 bg-gradient-to-tr from-slate-100 to-slate-200 rounded-xl flex items-center justify-center text-slate-500 font-bold relative overflow-hidden ring-2 ring-transparent group-hover:ring-emerald-100 transition-all">
                           {u.username?.charAt(0).toUpperCase()}
                           {u.role === 'driver' && (
-                            <div className={`absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full ${u.is_online ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                            <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 border-2 border-white rounded-full ${u.is_online ? 'bg-emerald-500' : 'bg-slate-400'}`}></div>
                           )}
                         </div>
                         <div>
-                          <div className="text-sm font-black text-gray-900 group-hover:text-emerald-600 transition-colors">
+                          <div className="text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">
                             {u.first_name || u.last_name ? `${u.first_name} ${u.last_name}` : u.username}
                           </div>
-                          <div className="text-xs text-gray-400 font-medium">@{u.username}</div>
+                          <div className="text-xs text-slate-400 font-medium">@{u.username}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-5">
+                    <td className="px-6 py-4">
                       <div className="space-y-1">
-                        <div className="text-xs font-bold text-gray-700 flex items-center gap-2">
-                          <Mail className="w-3 h-3 text-gray-400" />
+                        <div className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+                          <Mail className="w-3 h-3 text-slate-400" />
                           {u.email}
                         </div>
-                        <div className="text-[10px] font-bold text-gray-400 flex items-center gap-2">
+                        <div className="text-[10px] font-medium text-slate-400 flex items-center gap-2">
                           <Phone className="w-3 h-3" />
                           {u.phone_number || 'No Phone'}
                         </div>

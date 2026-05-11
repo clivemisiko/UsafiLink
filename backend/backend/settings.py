@@ -250,15 +250,23 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
-# M-PESA Configuration (Optional - for later)
-MPESA_CONSUMER_KEY = config('MPESA_CONSUMER_KEY', default='')
-MPESA_CONSUMER_SECRET = config('MPESA_CONSUMER_SECRET', default='')
-MPESA_SHORTCODE = config('MPESA_SHORTCODE', default='')
-MPESA_PASSKEY = config('MPESA_PASSKEY', default='')
-MPESA_INITIATOR_NAME = config('MPESA_INITIATOR_NAME', default='')
-MPESA_INITIATOR_PASSWORD = config('MPESA_INITIATOR_PASSWORD', default='')
-MPESA_ENV = config('MPESA_ENV', default='sandbox')
-MPESA_CALLBACK_URL = config('MPESA_CALLBACK_URL', default='http://localhost:8000/api/payments/mpesa/callback/')
+# Google Auth Configuration
+GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
+
+# IntaSend Configuration
+INTASEND_PUBLIC_KEY = config('INTASEND_PUBLIC_KEY', default='')
+INTASEND_SECRET_KEY = config('INTASEND_SECRET_KEY', default='')
+INTASEND_ENV = config('INTASEND_ENV', default='sandbox')  # 'sandbox', 'live', or 'production'
+INTASEND_CALLBACK_URL = config('INTASEND_CALLBACK_URL', default='http://localhost:8000/api/payments/intasend/callback/')
+
+# IntaSend API endpoints
+INTASEND_BASE_URL = 'https://sandbox.intasend.com' if INTASEND_ENV == 'sandbox' else 'https://payment.intasend.com'
+INTASEND_API_URL = f'{INTASEND_BASE_URL}/api/v1'
+
+# Log Intasend configuration
+print(f"INTASEND CONFIG: ENV={INTASEND_ENV}, BASE_URL={INTASEND_BASE_URL}")
+if INTASEND_ENV != 'sandbox' and not INTASEND_PUBLIC_KEY:
+    print("WARNING: Using LIVE Intasend API but INTASEND_PUBLIC_KEY is not set!")
 
 # Africa's Talking SMS Configuration
 AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='Usafilink')
@@ -270,15 +278,21 @@ EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
 
 # Support both standard Django and user-provided names
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default=config('MAIL_USERNAME', default=''))
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default=config('MAIL_PASSWORD', default=''))
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=config('MAIL_DEFAULT_SENDER', default='noreply@usafilink.com'))
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=config('MAIL_DEFAULT_SENDER', default=''))
+
+# If no explicit sender was configured, use the authenticated SMTP user.
+if not DEFAULT_FROM_EMAIL and EMAIL_HOST_USER:
+    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Startup check (Masked password)
 if EMAIL_HOST_USER:
     print(f"EMAIL CONFIG: Attempting to use {EMAIL_HOST_USER} for SMTP")
+    print(f"DEFAULT_FROM_EMAIL={DEFAULT_FROM_EMAIL}")
 else:
     print("WARNING: No EMAIL_HOST_USER or MAIL_USERNAME found in .env")
 
@@ -286,7 +300,6 @@ else:
 EMAIL_VERIFICATION_REQUIRED = True
 EMAIL_VERIFICATION_TOKEN_EXPIRY_HOURS = 24
 
-# Force reload for MPESA_ENV
 
 # Celery Configuration
 # Priority: explicit CELERY_TASK_ALWAYS_EAGER env var > broker URL > production detection
@@ -316,10 +329,23 @@ else:
     CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
     CELERY_TASK_ALWAYS_EAGER = False
 
+REDIS_URL = CELERY_BROKER_URL
+
+# Base URL for redirects
+BASE_URL = config('BASE_URL', default='http://localhost:8000')
+
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# Windows compatibility: Use solo pool instead of prefork
+# This avoids billiard process pool issues on Windows
+import platform
+if platform.system() == 'Windows':
+    CELERY_WORKER_POOL = 'solo'
+    CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+    CELERY_WORKER_MAX_TASKS_PER_CHILD = 1
 
 # Celery Beat Schedule
 from celery.schedules import crontab

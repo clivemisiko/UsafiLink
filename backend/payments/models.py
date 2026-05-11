@@ -13,7 +13,9 @@ class Payment(models.Model):
     )
     
     PAYMENT_METHOD_CHOICES = (
-        ('mpesa', 'M-PESA'),
+        ('mobile_money', 'Mobile Money (M-Pesa)'),
+        ('card', 'Card Payment'),
+        ('bank_transfer', 'Bank Transfer'),
         ('cash', 'Cash'),
     )
     
@@ -23,14 +25,28 @@ class Payment(models.Model):
         related_name='payment'
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    mpesa_receipt = models.CharField(max_length=50, blank=True, null=True, db_index=True)
+    
+    # Intasend payment identifiers
+    intasend_api_ref = models.CharField(max_length=100, blank=True, null=True, db_index=True)
+    invoice_id = models.CharField(max_length=50, blank=True, null=True, db_index=True)
+    
+    # Legacy/fallback payment references
     bank_reference = models.CharField(max_length=50, blank=True, null=True, db_index=True)
-    checkout_request_id = models.CharField(max_length=100, blank=True, null=True)
-    merchant_request_id = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Payment provider
+    payment_provider = models.CharField(
+        max_length=50,
+        default='intasend',
+        choices=(
+            ('intasend', 'IntaSend'),
+            ('mpesa', 'M-PESA'),
+        )
+    )
+    
     payment_method = models.CharField(
-        max_length=10, 
+        max_length=20, 
         choices=PAYMENT_METHOD_CHOICES, 
-        default='mpesa'
+        default='mobile_money'
     )
     status = models.CharField(
         max_length=20, 
@@ -68,9 +84,9 @@ class Payment(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['status', 'created_at']),
-            models.Index(fields=['mpesa_receipt']),
+            models.Index(fields=['intasend_api_ref']),
+            models.Index(fields=['invoice_id']),
             models.Index(fields=['bank_reference']),
-            models.Index(fields=['checkout_request_id']),
         ]
     
     def __str__(self):

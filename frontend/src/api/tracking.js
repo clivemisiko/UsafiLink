@@ -16,13 +16,20 @@ export const trackingAPI = {
         return response.data;
     },
 
-    // Get specific driver location
+    // Get specific driver location by driver id
     getDriverLocation: async (driverId) => {
-        // This assumes we might check specific driver location if we had an ID
-        // Currently the backend filters by user, but we might want this for customers tracking their driver
-        // For now we can assume customers will get driver location via booking status updates or similar
-        // But tracking/locations endpoint returns list based on permissions
+        const response = await axiosInstance.get('/tracking/locations/', {
+            params: { driver_id: driverId }
+        });
+        const data = response.data;
+        const results = Array.isArray(data) ? data : data.results || data.data || [];
+        return results.length > 0 ? results[0] : null;
+    },
+
+    // Get all driver locations (admin / customer view)
+    getAllDriverLocations: async () => {
         const response = await axiosInstance.get('/tracking/locations/');
-        return response.data;
+        const data = response.data;
+        return Array.isArray(data) ? data : data.results || data.data || [];
     }
 };

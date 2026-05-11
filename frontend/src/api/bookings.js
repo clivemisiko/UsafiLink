@@ -9,8 +9,25 @@ export const bookingsAPI = {
 
   // Get all bookings for user
   getUserBookings: async (params = {}) => {
-    const response = await axiosInstance.get('/bookings/bookings/', { params });
-    return response.data;
+    try {
+      const response = await axiosInstance.get('/bookings/bookings/', { params });
+      console.log('📚 getUserBookings raw response:', response.data);
+      const data = response.data;
+      // Handle different response formats
+      let bookings = [];
+      if (Array.isArray(data)) {
+        bookings = data;
+      } else if (data.results && Array.isArray(data.results)) {
+        bookings = data.results;
+      } else if (data.data && Array.isArray(data.data)) {
+        bookings = data.data;
+      }
+      console.log('📚 getUserBookings processed bookings:', bookings);
+      return bookings;
+    } catch (error) {
+      console.error('❌ getUserBookings error:', error.response?.data || error.message);
+      throw error;
+    }
   },
 
   // Get single booking
@@ -67,11 +84,39 @@ export const bookingsAPI = {
     return response.data;
   },
 
-  // Get available time slots
-  getAvailableSlots: async (date) => {
-    const response = await axiosInstance.get('/bookings/available-slots/', {
-      params: { date }
+  // Driver Slot endpoints
+  getAvailableSlots: async (date, driverId) => {
+    const params = { date };
+    if (driverId) params.driver_id = driverId;
+    const response = await axiosInstance.get('/bookings/driver-slots/available/', {
+      params
     });
+    return response.data;
+  },
+
+  getDriverSlots: async (date) => {
+    const params = date ? { date } : {};
+    const response = await axiosInstance.get('/bookings/driver-slots/my_slots/', { params });
+    return response.data;
+  },
+
+  createDriverSlot: async (slotData) => {
+    const response = await axiosInstance.post('/bookings/driver-slots/', slotData);
+    return response.data;
+  },
+
+  updateDriverSlot: async (id, slotData) => {
+    const response = await axiosInstance.patch(`/bookings/driver-slots/${id}/`, slotData);
+    return response.data;
+  },
+
+  deleteDriverSlot: async (id) => {
+    const response = await axiosInstance.delete(`/bookings/driver-slots/${id}/`);
+    return response.data;
+  },
+
+  getAllDriverSlots: async (params = {}) => {
+    const response = await axiosInstance.get('/bookings/driver-slots/', { params });
     return response.data;
   },
 
@@ -90,6 +135,18 @@ export const bookingsAPI = {
   // Rate booking
   rateBooking: async (id, ratingData) => {
     const response = await axiosInstance.post(`/bookings/bookings/${id}/rate/`, ratingData);
+    return response.data;
+  },
+
+  // Create dispute
+  createDispute: async (disputeData) => {
+    const response = await axiosInstance.post('/bookings/disputes/', disputeData);
+    return response.data;
+  },
+
+  // Get user disputes
+  getUserDisputes: async () => {
+    const response = await axiosInstance.get('/bookings/disputes/');
     return response.data;
   }
 };

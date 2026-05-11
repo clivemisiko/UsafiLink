@@ -98,7 +98,7 @@ const AddUser = () => {
     if (pageLoading) {
         return (
             <div className="h-96 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sage"></div>
             </div>
         );
     }
@@ -110,44 +110,44 @@ const AddUser = () => {
                 <div className="flex items-center gap-4">
                     <Link
                         to="/admin/users"
-                        className="p-3 bg-white border border-gray-100 rounded-2xl text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all shadow-sm"
+                        className="p-3 bg-white border border-border-light rounded-2xl text-stone hover:text-sage hover:bg-sage-muted transition-all shadow-sm"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </Link>
                     <div>
-                        <h1 className="text-3xl font-black text-gray-900 tracking-tight">
+                        <h1 className="text-3xl font-black text-ink tracking-tight">
                             {isEditing ? 'Edit User' : 'Create New User'}
                         </h1>
-                        <p className="text-gray-500 font-medium">
+                        <p className="text-stone font-medium">
                             {isEditing ? 'Update user account details' : 'Add a new account to the system'}
                         </p>
                     </div>
                 </div>
             </div>
 
-            <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-gray-50 overflow-hidden">
+            <div className="bg-white rounded-[2.5rem] shadow-lg border border-border-light overflow-hidden">
                 <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-10">
                     {/* Identity Section */}
                     <section className="space-y-6">
-                        <div className="flex items-center gap-3 border-b border-gray-50 pb-4">
-                            <div className="bg-emerald-50 p-2 rounded-xl text-emerald-600">
+                        <div className="flex items-center gap-3 border-b border-border-lighter pb-4">
+                            <div className="bg-sage-muted p-2 rounded-xl text-sage">
                                 <User className="w-5 h-5" />
                             </div>
-                            <h2 className="text-xl font-black text-gray-900">Identity Details</h2>
+                            <h2 className="text-xl font-black text-ink">Identity Details</h2>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Username</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-stone ml-1">Username</label>
                                 <div className="relative group">
-                                    <User className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-600 transition-colors" />
+                                    <User className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-stone group-focus-within:text-sage transition-colors" />
                                     <input
                                         type="text"
                                         name="username"
                                         required
                                         disabled={isEditing}
                                         placeholder="johndoe"
-                                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border-none rounded-2xl font-bold text-gray-900 focus:ring-4 focus:ring-emerald-500/10 placeholder:text-gray-300 transition-all disabled:opacity-60"
+                                        className="w-full pl-12 pr-4 py-4 bg-cream/50 border-none rounded-2xl font-bold text-ink focus:ring-4 focus:ring-sage/10 placeholder:text-stone transition-all disabled:opacity-60"
                                         value={formData.username}
                                         onChange={handleChange}
                                     />
@@ -155,12 +155,12 @@ const AddUser = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Account Role</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-stone ml-1">Account Role</label>
                                 <div className="relative group">
-                                    <Shield className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-600 transition-colors" />
+                                    <Shield className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-stone group-focus-within:text-sage transition-colors" />
                                     <select
                                         name="role"
-                                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border-none rounded-2xl font-bold text-gray-900 focus:ring-4 focus:ring-emerald-500/10 transition-all"
+                                        className="w-full pl-12 pr-4 py-4 bg-cream/50 border-none rounded-2xl font-bold text-ink focus:ring-4 focus:ring-sage/10 transition-all"
                                         value={formData.role}
                                         onChange={handleChange}
                                     >
@@ -172,24 +172,24 @@ const AddUser = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">First Name</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-stone ml-1">First Name</label>
                                 <input
                                     type="text"
                                     name="first_name"
                                     placeholder="John"
-                                    className="w-full px-6 py-4 bg-gray-50/50 border-none rounded-2xl font-bold text-gray-900 focus:ring-4 focus:ring-emerald-500/10 placeholder:text-gray-300 transition-all"
+                                    className="w-full px-6 py-4 bg-cream/50 border-none rounded-2xl font-bold text-ink focus:ring-4 focus:ring-sage/10 placeholder:text-stone transition-all"
                                     value={formData.first_name}
                                     onChange={handleChange}
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Last Name</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-stone ml-1">Last Name</label>
                                 <input
                                     type="text"
                                     name="last_name"
                                     placeholder="Doe"
-                                    className="w-full px-6 py-4 bg-gray-50/50 border-none rounded-2xl font-bold text-gray-900 focus:ring-4 focus:ring-emerald-500/10 placeholder:text-gray-300 transition-all"
+                                    className="w-full px-6 py-4 bg-cream/50 border-none rounded-2xl font-bold text-ink focus:ring-4 focus:ring-sage/10 placeholder:text-stone transition-all"
                                     value={formData.last_name}
                                     onChange={handleChange}
                                 />
@@ -199,25 +199,25 @@ const AddUser = () => {
 
                     {/* Contact & Security */}
                     <section className="space-y-6">
-                        <div className="flex items-center gap-3 border-b border-gray-50 pb-4">
-                            <div className="bg-teal-50 p-2 rounded-xl text-teal-600">
+                        <div className="flex items-center gap-3 border-b border-border-lighter pb-4">
+                            <div className="bg-sage-muted p-2 rounded-xl text-sage">
                                 <Lock className="w-5 h-5" />
                             </div>
-                            <h2 className="text-xl font-black text-gray-900">Contact & Security</h2>
+                            <h2 className="text-xl font-black text-ink">Contact & Security</h2>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Email Address</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-stone ml-1">Email Address</label>
                                 <div className="relative group">
-                                    <Mail className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-600 transition-colors" />
+                                    <Mail className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-stone group-focus-within:text-sage transition-colors" />
                                     <input
                                         type="email"
                                         name="email"
                                         required
                                         disabled={isEditing}
                                         placeholder="john@example.com"
-                                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border-none rounded-2xl font-bold text-gray-900 focus:ring-4 focus:ring-emerald-500/10 placeholder:text-gray-300 transition-all disabled:opacity-60"
+                                        className="w-full pl-12 pr-4 py-4 bg-cream/50 border-none rounded-2xl font-bold text-ink focus:ring-4 focus:ring-sage/10 placeholder:text-stone transition-all disabled:opacity-60"
                                         value={formData.email}
                                         onChange={handleChange}
                                     />
@@ -225,14 +225,14 @@ const AddUser = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Phone Number</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-stone ml-1">Phone Number</label>
                                 <div className="relative group">
-                                    <Phone className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-600 transition-colors" />
+                                    <Phone className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-stone group-focus-within:text-sage transition-colors" />
                                     <input
                                         type="tel"
                                         name="phone_number"
                                         placeholder="0712345678"
-                                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border-none rounded-2xl font-bold text-gray-900 focus:ring-4 focus:ring-emerald-500/10 placeholder:text-gray-300 transition-all"
+                                        className="w-full pl-12 pr-4 py-4 bg-cream/50 border-none rounded-2xl font-bold text-ink focus:ring-4 focus:ring-sage/10 placeholder:text-stone transition-all"
                                         value={formData.phone_number}
                                         onChange={handleChange}
                                     />
@@ -240,17 +240,17 @@ const AddUser = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">
-                                    Password {isEditing && <span className="text-gray-300">(Leave empty to keep current)</span>}
+                                <label className="text-[10px] font-black uppercase tracking-widest text-stone ml-1">
+                                    Password {isEditing && <span className="text-stone">(Leave empty to keep current)</span>}
                                 </label>
                                 <div className="relative group">
-                                    <Lock className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-emerald-600 transition-colors" />
+                                    <Lock className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-stone group-focus-within:text-sage transition-colors" />
                                     <input
                                         type="password"
                                         name="password"
                                         required={!isEditing}
                                         placeholder={isEditing ? "Leave empty for no change" : "••••••••"}
-                                        className="w-full pl-12 pr-4 py-4 bg-gray-50/50 border-none rounded-2xl font-bold text-gray-900 focus:ring-4 focus:ring-emerald-500/10 placeholder:text-gray-300 transition-all"
+                                        className="w-full pl-12 pr-4 py-4 bg-cream/50 border-none rounded-2xl font-bold text-ink focus:ring-4 focus:ring-sage/10 placeholder:text-stone transition-all"
                                         value={formData.password}
                                         onChange={handleChange}
                                     />
@@ -266,26 +266,26 @@ const AddUser = () => {
                                         checked={formData.is_active}
                                         onChange={handleChange}
                                     />
-                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                                    <span className="ml-3 text-sm font-black text-gray-900 uppercase tracking-tighter">Active Account</span>
+                                    <div className="w-11 h-6 bg-border-light peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-sage/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border-light after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sage"></div>
+                                    <span className="ml-3 text-sm font-black text-ink uppercase tracking-tighter">Active Account</span>
                                 </label>
                             </div>
                         </div>
                     </section>
 
                     {/* Form Actions */}
-                    <div className="pt-10 flex flex-col md:flex-row gap-4 items-center justify-end border-t border-gray-50">
+                    <div className="pt-10 flex flex-col md:flex-row gap-4 items-center justify-end border-t border-border-lighter">
                         <button
                             type="button"
                             onClick={() => navigate('/admin/users')}
-                            className="w-full md:w-auto px-8 py-4 bg-white text-gray-400 font-black uppercase tracking-widest text-xs hover:text-gray-900 transition-all"
+                            className="w-full md:w-auto px-8 py-4 bg-white text-stone font-black uppercase tracking-widest text-xs hover:text-ink transition-all"
                         >
                             Discard Changes
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full md:w-auto px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-slate-200 hover:bg-emerald-600 hover:shadow-emerald-200 transition-all flex items-center justify-center gap-3 disabled:bg-gray-400"
+                            className="w-full md:w-auto px-10 py-4 bg-sage text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg hover:bg-sage-light hover:shadow-lg transition-all flex items-center justify-center gap-3 disabled:bg-stone/40"
                         >
                             {loading ? (
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

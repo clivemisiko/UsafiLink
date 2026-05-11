@@ -7,7 +7,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Chatbot from '../components/Chatbot';
-import ServiceAnimation from '../components/ServiceAnimation';
+import truckImage from '../assets/usafilink-truck.jpg';
+import truck2Image from '../assets/usafilink-truck2.jpg';
+import sewageImage from '../assets/sewage.jpg';
+import sewage2Image from '../assets/sewage2.jpg';
 
 /* ─── animated counter ─── */
 const Counter = ({ end, suffix = '', duration = 2000 }) => {
@@ -79,7 +82,7 @@ export default function Landing() {
 
   const handleBook = () => {
     if (!selected) { toast.error('Please select a service size'); return; }
-    if (!location.trim()) { toast.error('Please enter your location'); return; }
+    if (!location) { toast.error('Please select your town'); return; }
     localStorage.setItem('pendingBooking', JSON.stringify({ tankSize: selected, location }));
     const token = localStorage.getItem('access_token');
     if (token) navigate('/bookings/new', { state: { tankSize: selected, location } });
@@ -151,70 +154,78 @@ export default function Landing() {
       </header>
 
       {/* ══════════════ HERO ══════════════ */}
-      <section id="hero" style={{ background: 'linear-gradient(135deg,#064e3b 0%,#065f46 40%,#0f766e 100%)', minHeight: '100vh', display: 'flex', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
-        {/* Background patterns */}
-        <div style={{ position: 'absolute', top: 60, left: -40, width: 400, height: 400, borderRadius: '50%', background: 'rgba(52,211,153,0.15)', filter: 'blur(60px)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: 40, right: -60, width: 500, height: 500, borderRadius: '50%', background: 'rgba(251,191,36,0.12)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', inset: 0, opacity: 0.07, backgroundImage: 'radial-gradient(circle,#fff 1px,transparent 1px)', backgroundSize: '36px 36px', pointerEvents: 'none' }} />
+      <section id="hero" style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+        {/* Hero Image Background */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          <img
+            src={truckImage}
+            alt="UsafiLink Exhauster Service Truck"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center',
+            }}
+          />
+          {/* Dark overlay for text readability */}
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,rgba(0,0,0,0.5) 0%,rgba(5,150,105,0.3) 100%)' }} />
+        </div>
 
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '100px 24px 60px', width: '100%' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center' }} className="hero-grid">
-
-            {/* Left text */}
-            <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 100, padding: '8px 18px', marginBottom: 28 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#fbbf24', display: 'inline-block', animation: 'ping 1s infinite' }} />
-                <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>Available across Nairobi</span>
-              </div>
-
-              <h1 style={{ fontSize: 64, fontWeight: 900, color: '#fff', lineHeight: 1.05, marginBottom: 24, letterSpacing: '-2px' }}>
-                Exhauster<br />
-                Services,<br />
-                <span style={{ background: 'linear-gradient(90deg,#fbbf24,#f97316)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                  On-Demand.
-                </span>
-              </h1>
-
-              <p style={{ fontSize: 18, color: 'rgba(167,243,208,0.9)', marginBottom: 36, lineHeight: 1.7, maxWidth: 460 }}>
-                Book an exhauster service online in minutes. Get upfront estimates, status updates, and flexible payment options.
-              </p>
-
-              {/* Booking bar */}
-              <div style={{ background: '#fff', borderRadius: 20, padding: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxWidth: 480 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', borderBottom: '1px solid #f3f4f6', marginBottom: 10 }}>
-                  <MapPin style={{ color: '#059669', width: 18, height: 18, flexShrink: 0 }} />
-                  <input
-                    type="text"
-                    placeholder="Enter your location or address…"
-                    value={location}
-                    onChange={e => setLocation(e.target.value)}
-                    style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, fontWeight: 500, color: '#111827', background: 'transparent' }}
-                  />
-                </div>
-                <button onClick={() => scrollTo('services')} style={{ width: '100%', padding: '13px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#059669,#0d9488)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px rgba(5,150,105,0.4)' }}>
-                  Find Available Trucks <ArrowRight style={{ width: 16, height: 16 }} />
-                </button>
-              </div>
-
-              {/* Trust badges */}
-              <div style={{ display: 'flex', gap: 32, marginTop: 32 }}>
-                {[['Fast', 'Response Focus'], ['Online', 'Booking Flow'], ['Trusted', 'By Customers']].map(([v, l]) => (
-                  <div key={l}>
-                    <div style={{ fontSize: 24, fontWeight: 900, color: '#fff' }}>{v}</div>
-                    <div style={{ fontSize: 11, color: '#6ee7b7', fontWeight: 600, marginTop: 2 }}>{l}</div>
-                  </div>
-                ))}
-              </div>
+        {/* Content */}
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '100px 24px 60px', width: '100%', position: 'relative', zIndex: 10 }}>
+          <div style={{ maxWidth: 600 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 100, padding: '10px 20px', marginBottom: 28 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#fbbf24', display: 'inline-block', animation: 'ping 1s infinite' }} />
+              <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>Available</span>
             </div>
 
-            {/* Right: Service Animation (desktop) */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="hero-right">
-              <ServiceAnimation />
+            <h1 style={{ fontSize: 72, fontWeight: 900, color: '#fff', lineHeight: 1.05, marginBottom: 24, letterSpacing: '-2px', textShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+              Professional<br />
+              Exhauster<br />
+              <span style={{ background: 'linear-gradient(90deg,#fbbf24,#f97316)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: 'none' }}>
+                Services
+              </span>
+            </h1>
+
+            <p style={{ fontSize: 18, color: '#fff', marginBottom: 36, lineHeight: 1.7, maxWidth: 480, textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+              Book an exhauster service online in minutes. Get upfront estimates, real-time tracking, and reliable professional service.
+            </p>
+
+            {/* Booking bar */}
+            <div style={{ background: '#fff', borderRadius: 20, padding: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.4)', maxWidth: 500 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderBottom: '1px solid #f3f4f6', marginBottom: 12 }}>
+                <MapPin style={{ color: '#059669', width: 18, height: 18, flexShrink: 0 }} />
+                <select
+                  value={location}
+                  onChange={e => setLocation(e.target.value)}
+                  style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, fontWeight: 500, color: location ? '#111827' : '#9ca3af', background: 'transparent', cursor: 'pointer' }}
+                >
+                  <option value="" style={{ color: '#9ca3af' }}>Select your town…</option>
+                  <option value="Juja" style={{ color: '#111827' }}>Juja</option>
+                  <option value="Ruiru" style={{ color: '#111827' }}>Ruiru</option>
+                  <option value="Kimbo" style={{ color: '#111827' }}>Kimbo</option>
+                </select>
+              </div>
+              <button onClick={() => scrollTo('services')} style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#059669,#0d9488)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px rgba(5,150,105,0.4)', transition: 'all 0.2s' }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
+                Get Started <ArrowRight style={{ width: 16, height: 16 }} />
+              </button>
+            </div>
+
+            {/* Trust badges */}
+            <div style={{ display: 'flex', gap: 32, marginTop: 40 }}>
+              {[['Fast', '15min avg'], ['Trusted', 'Verified'], ['Professional', '24/7 Available']].map(([v, l]) => (
+                <div key={l}>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>{v}</div>
+                  <div style={{ fontSize: 12, color: '#a7f3d0', fontWeight: 600, marginTop: 2 }}>{l}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        <button onClick={() => scrollTo('stats')} style={{ position: 'absolute', bottom: 28, left: '50%', transform: 'translateX(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animation: 'bounce 1.5s infinite' }}>
+        <button onClick={() => scrollTo('stats')} style={{ position: 'absolute', bottom: 28, left: '50%', transform: 'translateX(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animation: 'bounce 1.5s infinite', zIndex: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase' }}>Scroll</span>
           <ChevronDown style={{ width: 18, height: 18 }} />
         </button>
@@ -276,8 +287,13 @@ export default function Landing() {
           <div style={{ maxWidth: 480, margin: '0 auto 36px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: location ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.08)', border: location ? '2px solid #34d399' : '2px solid rgba(255,255,255,0.15)', borderRadius: 16, padding: '12px 18px', transition: 'all 0.3s' }}>
               <MapPin style={{ width: 18, height: 18, color: location ? '#34d399' : '#9ca3af', flexShrink: 0 }} />
-              <input type="text" placeholder="Enter your location to start booking…" value={location} onChange={e => setLocation(e.target.value)}
-                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, fontWeight: 500, color: '#fff', background: 'transparent' }} />
+              <select value={location} onChange={e => setLocation(e.target.value)}
+                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, fontWeight: 500, color: location ? '#fff' : '#9ca3af', background: 'transparent', cursor: 'pointer' }}>
+                <option value="" style={{ color: '#9ca3af' }}>Select your town…</option>
+                <option value="Juja" style={{ color: '#fff' }}>Juja</option>
+                <option value="Ruiru" style={{ color: '#fff' }}>Ruiru</option>
+                <option value="Kimbo" style={{ color: '#fff' }}>Kimbo</option>
+              </select>
               {location && <CheckCircle style={{ width: 18, height: 18, color: '#34d399', flexShrink: 0 }} />}
             </div>
           </div>
@@ -318,6 +334,36 @@ export default function Landing() {
                   </div>
                 </div>
               </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════ GALLERY/SHOWCASE ══════════════ */}
+      <section style={{ background: '#f9fafb', padding: '72px 24px' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 52 }}>
+            <span style={{ display: 'inline-block', padding: '6px 18px', background: '#d1fae5', color: '#065f46', fontSize: 11, fontWeight: 800, borderRadius: 100, marginBottom: 14, letterSpacing: 1, textTransform: 'uppercase' }}>Our Fleet & Services</span>
+            <h2 style={{ fontSize: 42, fontWeight: 900, color: '#111827', marginBottom: 10, letterSpacing: '-1px' }}>Professional Equipment in Action</h2>
+            <p style={{ fontSize: 16, color: '#6b7280', maxWidth: 500, margin: '0 auto' }}>Modern, certified equipment handled by trained professionals.</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24 }} className="gallery-grid">
+            {[
+              { img: truck2Image, title: 'Premium Exhauster Truck', desc: 'High-capacity certified tanker trucks for efficient waste removal.' },
+              { img: sewageImage, title: 'Advanced Pumping Equipment', desc: 'Industrial-grade drainage and sewage pumping solutions.' },
+              { img: sewage2Image, title: 'Professional Drainage Service', desc: 'Expert septic tank and drain cleaning services.' },
+            ].map((item, i) => (
+              <div key={i} style={{ borderRadius: 24, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', transition: 'all 0.3s', cursor: 'default', background: '#fff' }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-8px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(0,0,0,0.15)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.1)'; }}>
+                <div style={{ position: 'relative', height: 280, overflow: 'hidden', background: '#e5e7eb' }}>
+                  <img src={item.img} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s' }} />
+                </div>
+                <div style={{ padding: '24px' }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 800, color: '#111827', marginBottom: 8 }}>{item.title}</h3>
+                  <p style={{ fontSize: 14, color: '#6b7280', lineHeight: 1.6 }}>{item.desc}</p>
+                </div>
+              </div>
             ))}
           </div>
         </div>

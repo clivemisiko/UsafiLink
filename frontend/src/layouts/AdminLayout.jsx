@@ -39,7 +39,7 @@ const AdminLayout = () => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-parchment text-ink flex">
 
       {/* Sidebar */}
       <aside

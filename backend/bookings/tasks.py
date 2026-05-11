@@ -42,6 +42,10 @@ def auto_cancel_pending_bookings():
         
         cancelled_count = 0
         for booking in pending_bookings:
+            if booking.slot:
+                booking.slot.status = 'available'
+                booking.slot.save(update_fields=['status'])
+
             booking.status = 'cancelled'
             booking.save()
             cancelled_count += 1

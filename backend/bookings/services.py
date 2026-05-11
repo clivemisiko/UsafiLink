@@ -28,7 +28,10 @@ class DriverMatchingService:
     @classmethod
     def find_nearest_drivers(cls, booking, limit=None):
         """
-        Find nearest online drivers with active locations.
+        Find available online drivers.
+        Without real-time location tracking, we'll use a simple approach:
+        - Get all online, approved drivers
+        - Return the first N (eventually should be sorted by distance)
         
         Args:
             booking: Booking instance
@@ -40,28 +43,19 @@ class DriverMatchingService:
         if limit is None:
             limit = cls.MAX_DRIVERS_TO_NOTIFY
         
-        # Get all online drivers with locations
+        # Get all online, approved drivers (no location tracking yet)
         online_drivers = User.objects.filter(
             role='driver',
             is_online=True,
             is_active=True,
-            location__isnull=False
-        ).select_related('location')
+            is_driver_approved=True
+        ).order_by('id')
         
-        # Calculate distances and filter by max radius
-        driver_distances = []
-        for driver in online_drivers:
-            try:
-                distance = driver.location.distance_to(booking.latitude, booking.longitude)
-                
-                if distance <= cls.MAX_SEARCH_RADIUS_KM:
-                    driver_distances.append((driver, distance))
-            except Exception as e:
-                logger.error(f"Error calculating distance for driver {driver.id}: {e}")
-                continue
+        logger.info(f"Found {online_drivers.count()} online approved drivers")
         
-        # Sort by distance (nearest first)
-        driver_distances.sort(key=lambda x: x[1])
+        # For now, return drivers without actual distance calculation
+        # TODO: Implement real distance calculation with GPS coordinates
+        driver_distances = [(driver, 0.0) for driver in online_drivers]
         
         # Return top N drivers
         return driver_distances[:limit]

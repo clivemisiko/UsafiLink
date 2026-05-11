@@ -9,7 +9,10 @@ import {
   Edit,
   Save,
   X,
-  ChevronRight
+  ChevronRight,
+  IdCard,
+  Truck,
+  Lock
 } from 'lucide-react';
 import { authAPI } from '../api/auth';
 import toast from 'react-hot-toast';
@@ -27,7 +30,9 @@ const Profile = ({ user: initialUser = null, isEmbedded = false }) => {
     last_name: initialUser?.last_name || '',
     email: initialUser?.email || '',
     phone_number: initialUser?.phone_number || '',
-    address: initialUser?.address || ''
+    address: initialUser?.address || '',
+    driver_license_number: initialUser?.driver_license_number || '',
+    driver_license_expiry_date: initialUser?.driver_license_expiry_date || ''
   });
 
   useEffect(() => {
@@ -45,7 +50,9 @@ const Profile = ({ user: initialUser = null, isEmbedded = false }) => {
         last_name: userData.last_name || '',
         email: userData.email || '',
         phone_number: userData.phone_number || '',
-        address: userData.address || ''
+        address: userData.address || '',
+        driver_license_number: userData.driver_license_number || '',
+        driver_license_expiry_date: userData.driver_license_expiry_date || ''
       });
     } catch (error) {
       toast.error('Failed to fetch profile');
@@ -71,7 +78,9 @@ const Profile = ({ user: initialUser = null, isEmbedded = false }) => {
       last_name: user?.last_name || '',
       email: user?.email || '',
       phone_number: user?.phone_number || '',
-      address: user?.address || ''
+      address: user?.address || '',
+      driver_license_number: user?.driver_license_number || '',
+      driver_license_expiry_date: user?.driver_license_expiry_date || ''
     });
     setEditing(false);
   };
@@ -102,54 +111,60 @@ const Profile = ({ user: initialUser = null, isEmbedded = false }) => {
 
   if (loading) {
     return (
-      <div className={`${isEmbedded ? 'h-64' : 'min-h-screen'} flex items-center justify-center`}>
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
+      <div className={`${isEmbedded ? 'h-64' : 'min-h-screen'} flex items-center justify-center bg-slate-50`}>
+        <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+        </div>
       </div>
     );
   }
 
   const tabs = [
     { id: 'personal', label: 'Personal Info', icon: User },
-    ...(user?.role === 'driver' ? [{ id: 'vehicle', label: 'Vehicle Info', icon: Shield }] : []),
-    { id: 'security', label: 'Security', icon: Shield },
+    ...(user?.role === 'driver' ? [{ id: 'license', label: 'License Info', icon: IdCard }] : []),
+    ...(user?.role === 'driver' ? [{ id: 'vehicle', label: 'Vehicle Info', icon: Truck }] : []),
+    { id: 'security', label: 'Security', icon: Lock },
   ];
 
   return (
-    <div className={`${isEmbedded ? '' : 'min-h-screen'} bg-gray-50`}>
+    <div className={`${isEmbedded ? '' : 'min-h-screen bg-parchment text-ink'} w-full`}>
       {!isEmbedded && (
-        <header className="bg-white shadow">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="md:flex md:items-center md:justify-between">
-              <div className="flex-1 min-w-0">
-                <h1 className="text-3xl font-bold text-gray-900">Account Settings</h1>
-                <p className="mt-1 text-sm text-gray-600">
-                  Manage your {user?.role} profile and account security
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-sage flex items-center justify-center shadow-lg shadow-sage-muted">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-black text-slate-900">Account Settings</h1>
+                  <p className="text-xs text-slate-500">Manage your profile and security</p>
+                </div>
               </div>
               <div className="mt-4 flex md:mt-0 md:ml-4">
                 {activeTab === 'personal' && (
                   !editing ? (
                     <button
                       onClick={() => setEditing(true)}
-                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all"
                     >
-                      <Edit className="mr-2 h-4 w-4" />
+                      <Edit className="w-4 h-4" />
                       Edit Profile
                     </button>
                   ) : (
-                    <div className="flex space-x-2">
+                    <div className="flex gap-2">
                       <button
                         onClick={handleSave}
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all"
                       >
-                        <Save className="mr-2 h-4 w-4" />
+                        <Save className="w-4 h-4" />
                         Save
                       </button>
                       <button
                         onClick={handleCancel}
-                        className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-all"
                       >
-                        <X className="mr-2 h-4 w-4" />
+                        <X className="w-4 h-4" />
                         Cancel
                       </button>
                     </div>
@@ -159,19 +174,19 @@ const Profile = ({ user: initialUser = null, isEmbedded = false }) => {
             </div>
 
             {/* Tab Navigation */}
-            <div className="mt-6 flex space-x-8 border-b border-gray-200">
+            <div className="mt-6 flex gap-6 border-b border-slate-200">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center pb-4 px-1 border-b-2 font-medium text-sm transition ${activeTab === tab.id
+                    className={`flex items-center gap-2 pb-3 px-1 border-b-2 font-semibold text-sm transition-all ${activeTab === tab.id
                       ? 'border-emerald-500 text-emerald-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      : 'border-transparent text-slate-400 hover:text-slate-600'
                       }`}
                   >
-                    <Icon className="mr-2 h-4 w-4" />
+                    <Icon className="w-4 h-4" />
                     {tab.label}
                   </button>
                 );
@@ -182,14 +197,15 @@ const Profile = ({ user: initialUser = null, isEmbedded = false }) => {
       )}
 
       {isEmbedded && (
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex space-x-4 border-b border-gray-100 w-full mb-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="flex gap-4 border-b border-slate-200 w-full">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`pb-3 px-1 font-bold text-sm transition-all border-b-2 ${activeTab === tab.id ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                className={`pb-3 px-1 font-bold text-sm transition-all border-b-2 flex items-center gap-2 ${activeTab === tab.id ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
               >
+                <tab.icon className="w-4 h-4" />
                 {tab.label}
               </button>
             ))}
@@ -197,144 +213,215 @@ const Profile = ({ user: initialUser = null, isEmbedded = false }) => {
           {activeTab === 'personal' && (
             <button
               onClick={() => editing ? handleSave() : setEditing(true)}
-              className={`flex items-center px-4 py-2 rounded-xl font-bold transition-all text-sm border shadow-sm ${editing ? 'bg-green-50 text-green-700 border-green-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all shadow-sm ${editing ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-white text-emerald-600 border border-emerald-200 hover:bg-emerald-50'}`}
             >
-              {editing ? <><Save className="mr-2 h-4 w-4" /> Save</> : <><Edit className="mr-2 h-4 w-4" /> Edit Profile</>}
+              {editing ? <><Save className="w-4 h-4" /> Save</> : <><Edit className="w-4 h-4" /> Edit</>}
             </button>
           )}
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <main className="w-full py-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           {activeTab === 'personal' && (
-            <div className="p-8 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="p-6 space-y-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center">
+                  <User className="w-4 h-4 text-blue-600" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900">Personal Information</h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">First Name</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">First Name</label>
                   {editing ? (
                     <input
                       type="text"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 active:ring-emerald-500 outline-none"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-slate-700 font-medium"
                       value={formData.first_name}
                       onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                     />
                   ) : (
-                    <p className="text-gray-900 bg-gray-50 px-4 py-3 rounded-lg border border-gray-100">{user.first_name || 'Not set'}</p>
+                    <p className="text-slate-900 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100 font-medium">{user.first_name || 'Not set'}</p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Last Name</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Last Name</label>
                   {editing ? (
                     <input
                       type="text"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 active:ring-emerald-500 outline-none"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-slate-700 font-medium"
                       value={formData.last_name}
                       onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                     />
                   ) : (
-                    <p className="text-gray-900 bg-gray-50 px-4 py-3 rounded-lg border border-gray-100">{user.last_name || 'Not set'}</p>
+                    <p className="text-slate-900 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100 font-medium">{user.last_name || 'Not set'}</p>
                   )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-                    <p className="text-gray-900 bg-gray-50 pl-10 pr-4 py-3 rounded-lg border border-gray-100">{user.email}</p>
+                    <Mail className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-400" />
+                    <p className="text-slate-900 bg-slate-50 pl-11 pr-4 py-3 rounded-xl border border-slate-100 font-medium">{user.email}</p>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Phone Number</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Phone Number</label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+                    <Phone className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-400" />
                     {editing ? (
                       <input
                         type="tel"
-                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 active:ring-emerald-500 outline-none"
+                        className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-slate-700 font-medium"
                         value={formData.phone_number}
                         onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
                       />
                     ) : (
-                      <p className="text-gray-900 bg-gray-50 pl-10 pr-4 py-3 rounded-lg border border-gray-100">{user.phone_number}</p>
+                      <p className="text-slate-900 bg-slate-50 pl-11 pr-4 py-3 rounded-xl border border-slate-100 font-medium">{user.phone_number}</p>
                     )}
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Address</label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
+                  <MapPin className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-400" />
                   {editing ? (
                     <textarea
-                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 active:ring-emerald-500 outline-none"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-slate-700 font-medium resize-none"
                       rows="3"
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     />
                   ) : (
-                    <p className="text-gray-900 bg-gray-50 pl-10 pr-4 py-3 rounded-lg border border-gray-100">{user.address || 'Not set'}</p>
+                    <p className="text-slate-900 bg-slate-50 pl-11 pr-4 py-3 rounded-xl border border-slate-100 font-medium">{user.address || 'Not set'}</p>
                   )}
                 </div>
               </div>
             </div>
           )}
 
+          {activeTab === 'license' && user?.role === 'driver' && (
+            <div className="p-6 space-y-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center">
+                  <IdCard className="w-4 h-4 text-violet-600" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900">License Information</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">License Number</label>
+                  {editing ? (
+                    <input
+                      type="text"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-slate-700 font-medium uppercase"
+                      value={formData.driver_license_number}
+                      onChange={(e) => setFormData({ ...formData, driver_license_number: e.target.value })}
+                    />
+                  ) : (
+                    <p className="text-slate-900 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100 font-medium uppercase">{user.driver_license_number || 'Not set'}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">License Expiry Date</label>
+                  {editing ? (
+                    <input
+                      type="date"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all text-slate-700 font-medium"
+                      value={formData.driver_license_expiry_date}
+                      onChange={(e) => setFormData({ ...formData, driver_license_expiry_date: e.target.value })}
+                    />
+                  ) : (
+                    <p className="text-slate-900 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100 font-medium">
+                      {user.driver_license_expiry_date ? new Date(user.driver_license_expiry_date).toLocaleDateString() : 'Not set'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {user.driver_license_expiry_date && new Date(user.driver_license_expiry_date) < new Date() && (
+                <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <Shield className="w-4 h-4 text-red-600" />
+                  </div>
+                  <p className="text-red-700 font-semibold text-sm">Your license has expired. Please renew it to continue using the platform.</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'vehicle' && user?.role === 'driver' && (
-            <div className="p-8 space-y-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Vehicle Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
-                  <p className="text-sm text-gray-500 mb-1">Truck Model</p>
-                  <p className="text-lg font-bold">Isuzu FRR 650 - Exhauster</p>
+            <div className="p-6 space-y-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center">
+                  <Truck className="w-4 h-4 text-amber-600" />
                 </div>
-                <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
-                  <p className="text-sm text-gray-500 mb-1">Registration Number</p>
-                  <p className="text-lg font-bold">KDL 456X</p>
+                <h2 className="text-lg font-bold text-slate-900">Vehicle Information</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Truck Model</p>
+                  <p className="text-lg font-black text-slate-900">Isuzu FRR 650</p>
+                  <p className="text-sm text-slate-500">Exhauster Truck</p>
                 </div>
-                <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
-                  <p className="text-sm text-gray-500 mb-1">Tank Capacity</p>
-                  <p className="text-lg font-bold">10,000 Liters</p>
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Registration</p>
+                  <p className="text-lg font-black text-slate-900 font-mono">KDL 456X</p>
                 </div>
-                <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
-                  <p className="text-sm text-gray-500 mb-1">Last Inspection</p>
-                  <p className="text-lg font-bold">Oct 12, 2025</p>
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tank Capacity</p>
+                  <p className="text-lg font-black text-slate-900">10,000 L</p>
+                </div>
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Last Inspection</p>
+                  <p className="text-lg font-black text-slate-900">Oct 12, 2025</p>
                 </div>
               </div>
             </div>
           )}
 
           {activeTab === 'security' && (
-            <div className="p-8 space-y-8">
-              <h3 className="text-xl font-bold text-gray-900">Security & Privacy</h3>
-              <div className="space-y-4">
-                <button onClick={handleChangePassword} className="flex items-center justify-between w-full p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition">
-                  <div className="flex items-center">
-                    <Shield className="h-5 w-5 text-emerald-600 mr-4" />
+            <div className="p-6 space-y-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center">
+                  <Lock className="w-4 h-4 text-emerald-600" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900">Security & Privacy</h2>
+              </div>
+              <div className="space-y-3">
+                <button onClick={handleChangePassword} className="flex items-center justify-between w-full p-4 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 hover:border-slate-200 transition-all group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                      <Shield className="w-5 h-5 text-emerald-600" />
+                    </div>
                     <div className="text-left">
-                      <p className="font-semibold">Change Password</p>
-                      <p className="text-sm text-gray-500">Update your account password</p>
+                      <p className="font-bold text-slate-900">Change Password</p>
+                      <p className="text-xs text-slate-500">Update your account password</p>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                  <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-emerald-600 transition-colors" />
                 </button>
-                <button onClick={handleTwoFactorAuth} className="flex items-center justify-between w-full p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition">
-                  <div className="flex items-center">
-                    <Mail className="h-5 w-5 text-purple-600 mr-4" />
+                <button onClick={handleTwoFactorAuth} className="flex items-center justify-between w-full p-4 bg-slate-50 border border-slate-100 rounded-xl hover:bg-slate-100 hover:border-slate-200 transition-all group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+                      <Mail className="w-5 h-5 text-violet-600" />
+                    </div>
                     <div className="text-left">
-                      <p className="font-semibold">Two-Factor Authentication</p>
-                      <p className="text-sm text-gray-500">Add an extra layer of security</p>
+                      <p className="font-bold text-slate-900">Two-Factor Authentication</p>
+                      <p className="text-xs text-slate-500">Add an extra layer of security</p>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                  <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-violet-600 transition-colors" />
                 </button>
-                <div className="pt-4 mt-8 border-t border-gray-100">
+                <div className="pt-6 mt-4 border-t border-slate-100">
                   <button
                     onClick={handleDeleteAccount}
-                    className="text-red-600 font-semibold hover:bg-red-50 px-4 py-2 rounded-lg transition"
+                    className="flex items-center gap-2 text-red-600 font-bold hover:bg-red-50 px-4 py-2.5 rounded-xl transition-all"
                   >
                     Delete Account
                   </button>

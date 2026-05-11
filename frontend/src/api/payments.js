@@ -1,10 +1,10 @@
 import axiosInstance from './axiosConfig';
 
 export const paymentsAPI = {
-  // Initiate M-PESA payment
-  initiateMpesaPayment: async (paymentData) => {
+  // Initiate IntaSend payment (checkout link)
+  initiatePayment: async (paymentData) => {
     const response = await axiosInstance.post(
-      '/payments/payments/initiate_mpesa_payment/',
+      '/payments/payments/initiate_payment/',
       paymentData
     );
     return response.data;

@@ -5,13 +5,13 @@ from bookings.models import Booking
 class PaymentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
-        fields = ['booking', 'amount', 'payment_method', 'mpesa_receipt', 'bank_reference', 'notes']
+        fields = ['booking', 'amount', 'payment_method', 'intasend_api_ref', 'bank_reference', 'notes']
         read_only_fields = ['status', 'created_at']
 
 class PaymentUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
-        fields = ['status', 'mpesa_receipt', 'notes']
+        fields = ['status', 'intasend_api_ref', 'notes']
         read_only_fields = ['booking', 'amount', 'created_at']
 
 class PaymentSerializer(serializers.ModelSerializer):

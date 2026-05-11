@@ -1,0 +1,817 @@
+CHAPTER THREE
+SYSTEM ANALYSIS AND DESIGN
+3.1 Introduction
+This chapter presents the system analysis and design of UsafiLink, a proximity-based exhauster service management system. The chapter begins by describing the Agile system development methodology adopted for the project, followed by a feasibility study assessing the economic, technical, and operational viability of the proposed system. It then details the requirements elicitation process, including the data collection instruments used and the sampling approach applied. The findings from data analysis are presented and used to derive functional and non-functional system requirements. The chapter concludes with a comprehensive system design covering the logical architecture, control flow, database structure, and user interface design of UsafiLink.
+3.2 System Development Methodology
+UsafiLink was developed using the Agile System Development Methodology, specifically the Scrum framework. Agile was selected because the system involves multiple interdependent components — the React and Vite web application frontend, the Django REST Framework backend, the SQLite development database, the Celery asynchronous task queue, and the M-Pesa Daraja API integration — each of which benefits from incremental development, continuous testing, and iterative refinement based on user feedback. Unlike the Waterfall model, which requires all requirements to be fully defined before development begins, Agile accommodates the evolving nature of requirements that is characteristic of systems deployed in informal service sectors such as exhauster service management in Kenya.
+The development was organised into two-week sprints, each producing a working and testable increment of the system. Sprint one focused on user authentication, email OTP verification, and two-factor authentication (2FA/TOTP). Sprint two implemented the GPS service request module and the proximity-matching dispatch algorithm with automated driver timeout management via Celery. Sprint three covered M-Pesa STK Push customer payments and B2C driver payout integration. Sprint four developed the driver rating system, transaction audit logging, and the administrative web dashboard. Sprint five was dedicated to integration testing, performance evaluation of the dispatch algorithm, and user acceptance testing. This iterative structure ensured that the proximity-matching algorithm — the core research component of UsafiLink — could be evaluated and refined across successive sprints based on measured wait time and route efficiency data. The sprint schedule and project timeline are presented in Figures 3.1 and 3.2 in Section 3.6.
+3.3 Feasibility Study
+A feasibility study was conducted to assess the viability of UsafiLink across three dimensions: technical, economic, and operational. The findings confirmed that the project is feasible within the constraints of the eight-month development timeline and the available resources.
+3.3.1 Technical Feasibility
+The technologies used to develop UsafiLink are mature, well-documented, and freely available. The frontend is built with React and Vite, producing a responsive progressive web application accessible on both desktop browsers and mobile browsers on Android devices, without requiring a native application installation. The backend is built entirely on Django and Django REST Framework (Python). The database used during development and testing is SQLite, with PostgreSQL and PostGIS recommended for production deployment. The Safaricom Daraja API enables both M-Pesa STK Push customer payments and B2C business-to-customer driver payouts. Celery with a Redis broker handles asynchronous task management.
+3.3.2 Economic Feasibility
+The development of UsafiLink does not require the purchase of proprietary software licences. Django, React, Vite, Celery, Redis, and SQLite are all open-source. The Safaricom Daraja API sandbox is freely available for development and testing. Hosting costs for the pilot can be accommodated on free-tier cloud services. The system is therefore economically feasible.
+3.3.3 Operational Feasibility
+The target users — exhauster drivers and customers in urban Kenya — demonstrate high rates of smartphone ownership and mobile internet usage. M-Pesa is embedded in daily financial transactions, reducing adoption barriers. The decision to implement UsafiLink as a responsive web application rather than a native Android application is operationally appropriate given storage space and data cost considerations of the target population. The system is therefore operationally feasible within the defined deployment context. A consolidated feasibility summary matrix is presented as Figure 3.3 in Section 3.6.
+3.4 Requirements Elicitation
+3.4.1 Data Collection
+Requirements elicitation for UsafiLink was conducted using two complementary data collection instruments: structured questionnaires and semi-structured interviews. Structured questionnaires were administered to exhauster drivers in person to collect quantitative data on their current service coordination processes, typical response times, frequency of job conflicts, and payment collection challenges. Semi-structured interviews gathered deeper qualitative data on operational workflows, navigation practices, and attitudes towards digital service management tools. Each interview lasted approximately twenty minutes.
+3.4.2 Sampling
+A purposive sampling technique was employed. The target population consisted of actively operating exhauster drivers in Nairobi and its peri-urban zones. A sample of eight exhauster drivers was selected, representing both independent operators and drivers affiliated with small exhauster service companies. The findings were used to identify recurring operational themes and derive system requirements rather than to produce statistically generalizable results (Creswell, 2014).
+3.5 Data Analysis
+The data collected from questionnaires and interviews was analysed using frequency counts and percentages (quantitative) and thematic coding (qualitative). The key findings are summarised in Table 3.1.
+Table 3.1 – Summary of Key Findings from Requirements Elicitation
+Challenge Identified
+Frequency (n=8)
+Implication for System
+Difficulty identifying the nearest available driver
+8/8 (100%)
+Proximity-based auto-dispatch required
+Double bookings due to manual coordination
+7/8 (88%)
+Driver availability status management needed
+Payment disputes and unpaid jobs
+6/8 (75%)
+M-Pesa digital payment with receipts required
+No record of completed jobs
+8/8 (100%)
+Service history logging required
+Customers unaware of driver arrival time
+7/8 (88%)
+Live tracking and ETA display required
+Inconsistent and disputed pricing
+5/8 (63%)
+Distance-based fare estimation required
+Table 3.1: Summary of Key Findings from Requirements Elicitation
+3.6 System Specification
+This section presents the complete system specification derived from the data analysis findings in Section 3.5. All design diagrams, models, and charts are consolidated here and in the subsequent sections.
+3.6.1 Development Methodology Diagrams
+Figure 3.1 – Scrum Sprint Schedule
+The table below summarises the deliverables produced in each two-week sprint across the Agile development cycle.
+Sprint
+Deliverables
+Sprint 1 (Weeks 1–2)
+User authentication, email OTP verification, 2FA/TOTP setup
+Sprint 2 (Weeks 3–4)
+GPS service request module, proximity-matching dispatch algorithm, Celery driver timeout management
+Sprint 3 (Weeks 5–6)
+M-Pesa STK Push customer payments, B2C driver payout integration
+Sprint 4 (Weeks 7–8)
+Driver rating system, transaction audit logging, administrative web dashboard
+Sprint 5 (Weeks 9–10)
+Integration testing, dispatch algorithm performance evaluation, user acceptance testing
+Figure 3.1: UsafiLink Scrum Sprint Schedule
+Figure 3.2 – Project Gantt Chart
+The Gantt chart below illustrates the planned schedule of all project activities across the eight-month development timeline.
+Activity
+M1
+M2
+M3
+M4
+M5
+M6
+M7
+M8
+Literature Review & Research
+Requirements Elicitation
+System Design & Modelling
+Sprint 1 – Auth & OTP
+Sprint 2 – Dispatch Algorithm
+Sprint 3 – M-Pesa Integration
+Sprint 4 – Dashboard & Audit
+Sprint 5 – Testing & UAT
+Documentation & Final Write-up
+Figure 3.2: UsafiLink Project Gantt Chart (M1–M8 = Months 1–8)
+Figure 3.3 – Feasibility Assessment Summary Matrix
+The matrix below consolidates the three feasibility dimensions assessed in Section 3.3.
+Dimension
+Key Assessment Criteria
+Finding
+Verdict
+Technical
+Mature open-source stack (React, Django, SQLite, Celery, Redis); Haversine algorithm implementable in Python; Daraja API available for sandbox testing
+All tools freely available and functional
+✔ Feasible
+Economic
+No proprietary licence costs; free-tier hosting sufficient for pilot; primary cost is developer time
+No unaffordable expenditures identified
+✔ Feasible
+Operational
+High smartphone/M-Pesa penetration among target users; PWA removes app store friction; drivers expressed willingness to adopt
+Adoption barriers low for target population
+✔ Feasible
+Figure 3.3: Feasibility Assessment Summary Matrix
+3.6.2 User Stories
+User stories were derived from the requirements elicitation findings and are expressed in the standard Agile format: As a [role], I want to [action], so that [benefit].
+ID
+As a…
+I want to…
+So that…
+Priority
+US01
+Customer
+Register using my phone number and email
+I can create a verified account to request services
+Must Have
+US02
+Customer
+Submit a service request from my location
+A nearby exhauster driver is automatically assigned to me
+Must Have
+US03
+Customer
+Track my driver on a live map
+I know the driver's location and estimated arrival time
+Must Have
+US04
+Customer
+Pay via M-Pesa STK Push
+I can complete payment securely without handling cash
+Must Have
+US05
+Customer
+Receive a digital receipt after payment
+I have a verifiable record of the transaction
+Should Have
+US06
+Customer
+Rate the driver after job completion
+I can provide feedback to improve service quality
+Should Have
+US07
+Customer
+View a fare estimate before confirming a booking
+I know the cost before committing to the service
+Should Have
+US08
+Driver
+Toggle my availability status
+I only receive job assignments when I am ready to work
+Must Have
+US09
+Driver
+Accept or reject a job request within 10 seconds
+I can decide whether to take on a new job
+Must Have
+US10
+Driver
+View the customer's location on a map
+I can navigate to the customer using in-app directions
+Must Have
+US11
+Driver
+Mark a job as complete
+The payment process is triggered and my status resets
+Must Have
+US12
+Driver
+Receive earnings via M-Pesa B2C payout
+I am paid digitally without visiting an office
+Should Have
+US13
+Admin
+View all active driver locations on a live map
+I can monitor fleet coverage and respond to service gaps
+Must Have
+US14
+Admin
+Access job history and payment records
+I can resolve disputes and review operational performance
+Must Have
+US15
+Admin
+View audit logs of all M-Pesa transactions
+I can perform financial reconciliation and detect anomalies
+Should Have
+Table 3.2: UsafiLink User Stories (MoSCoW Prioritisation)
+3.6.3 Functional Requirements
+FR No.
+Module
+Requirement
+FR01
+Authentication
+The system shall allow customers and drivers to register using their name, phone number, and password.
+FR02
+Authentication
+The system shall authenticate users via phone number and password with session token management.
+FR03
+Service Request
+The system shall automatically capture the customer's GPS coordinates upon service request submission.
+FR04
+Dispatch
+The system shall compute the Haversine distance between the customer's GPS coordinates and all available drivers and dispatch the nearest one automatically.
+FR05
+Job Management
+The system shall notify the assigned driver of a new job and allow them to accept or reject it within a defined timeout period.
+FR06
+Dispatch
+If the nearest driver rejects the job or does not respond within the timeout, the system shall automatically dispatch to the next nearest available driver.
+FR07
+Live Tracking
+The system shall update and display the assigned driver's GPS location to the customer in real time during service delivery.
+FR08
+Payment
+The system shall calculate a fare estimate based on the distance between the customer and driver locations.
+FR09
+Payment
+The system shall initiate an M-Pesa STK Push payment prompt on the customer's phone upon job completion and issue a digital receipt.
+FR10
+Admin Dashboard
+The system shall display the real-time GPS locations of all active drivers on a map for the administrator.
+FR11
+Admin Dashboard
+The system shall allow the administrator to view all service requests, job assignments, completion records, and payment histories.
+FR12
+Driver Status
+The system shall allow drivers to toggle their availability status, preventing dispatch to unavailable drivers.
+FR13
+Authentication
+The system shall send a one-time password (OTP) to the user's email address during registration.
+FR14
+Authentication
+The system shall support two-factor authentication (2FA) using a TOTP authenticator app.
+FR15
+Dispatch
+The system shall automatically reassign a job to the next nearest available driver if no response within ten seconds, via Celery.
+FR16
+Payment
+The system shall support M-Pesa B2C payouts to disburse driver earnings to their registered phone number.
+FR17
+Ratings
+The system shall allow customers to submit a star rating for the driver upon job completion.
+FR18
+Audit
+The system shall maintain a transaction audit log recording all payment events, status changes, and M-Pesa callback responses.
+Table 3.3: Functional Requirements
+3.6.4 Non-Functional Requirements
+Category
+Requirement
+Performance
+The proximity dispatch algorithm shall compute and assign the nearest driver within 3 seconds of a service request.
+Performance
+Driver GPS location updates shall be synchronised to the server at intervals of no more than 5 seconds during active jobs.
+Security
+All API communications shall be secured using HTTPS with JWT-based authentication tokens. Passwords shall be stored as PBKDF2/bcrypt hashes.
+Security
+M-Pesa payment callbacks shall be validated using Safaricom's IP whitelist and payload signature verification.
+Usability
+The mobile application shall be operable by a driver with basic smartphone literacy within a maximum of 3 taps to accept a job.
+Availability
+The backend API shall target an uptime of 99% during the pilot deployment period.
+Scalability
+The database schema shall accommodate growth in registered drivers and customers without structural changes.
+Table 3.4: Non-Functional Requirements
+3.7 Requirements Analysis and Modelling
+The gathered requirements were analysed to identify the key system actors, their interactions with the system, and the core use cases. Three primary actors were identified: the Customer, the Exhauster Driver, and the Administrator.
+Figure 3.4 – UML Use Case Diagram
+The UML Use Case Diagram below maps each system actor to their interactions with the UsafiLink system.
+Actor
+Use Case
+Description
+Customer
+Register / Login
+Create account or authenticate using phone number and password.
+Customer
+Request Service
+Submit service request; system captures GPS coordinates automatically.
+Customer
+Track Driver
+View live location of assigned driver on map with ETA.
+Customer
+Make Payment
+Receive M-Pesa STK Push prompt and complete payment.
+Customer
+Rate Driver
+Submit star rating after job completion.
+Driver
+Register / Login
+Register with vehicle details or authenticate to access driver interface.
+Driver
+Set Availability
+Toggle status to available or busy before and after jobs.
+Driver
+Accept / Reject Job
+Receive job notification and accept or reject within the timeout window.
+Driver
+Navigate to Customer
+Use in-app map navigation to reach customer location.
+Driver
+Mark Job Complete
+Trigger M-Pesa payment process upon service completion.
+Admin
+Monitor Fleet
+View real-time driver locations and availability on dashboard map.
+Admin
+View Reports
+Access job history, payment records, and performance metrics.
+Admin
+Manage Drivers
+View driver registry, rating scores, and vehicle details.
+System (Celery)
+Auto-Reassign Job
+Automatically reassign job to next nearest driver after 10-second timeout.
+System (Daraja)
+Process Payment
+Validate M-Pesa STK Push callback and trigger B2C driver payout.
+Figure 3.4: UML Use Case Summary Table – UsafiLink Actors and Interactions
+Figure 3.5 – UML Activity Diagram: Service Request & Dispatch Flow
+The following activity diagram traces the complete lifecycle of a service request from customer submission through dispatch, tracking, payment, and audit logging.
+Customer Actions
+System / Driver Actions
+● START
+Login / Register
+Submit Service Request
+GPS coordinates captured automatically
+Haversine algorithm queries available drivers
+Nearest driver selected → Notification sent
+Dispatch confirmation displayed
+Driver receives job request (10s timer starts)
+[If driver accepts] Job status → In Progress
+[If rejected / timeout] → Next nearest driver notified
+Live tracking view loaded
+Driver GPS updates polled every 5 seconds
+Driver arrives – service delivered
+Driver marks job as Complete
+M-Pesa STK Push received
+STK Push triggered via Daraja API
+Customer completes payment
+Payment callback validated
+Digital receipt displayed
+Audit log updated; Driver status reset to Available
+Rate the driver (1–5 stars)
+Rating stored; Cumulative driver score updated
+■ END
+Figure 3.5: UML Activity Diagram – Service Request and Dispatch Lifecycle
+Figure 3.6 – UML Class Diagram
+The UML Class Diagram below shows the core entity classes of UsafiLink, their attributes, key methods, and relationships.
+«class» User
++user_id: INT (PK)
++full_name: VARCHAR(100)
++phone_number: VARCHAR(15)
++password_hash: VARCHAR(255)
++role: ENUM(customer|driver|admin)
++created_at: TIMESTAMP
+─── Methods ───────────────────
++register(): void
++login(): Token
++verifyOTP(otp): bool
++setupTOTP(): void
+«class» Driver
++driver_id: INT (PK→User)
++vehicle_plate: VARCHAR(20)
++availability_status: ENUM
++current_latitude: DECIMAL(10,8)
++current_longitude: DECIMAL(11,8)
++cumulative_rating: FLOAT
+─── Methods ───────────────────
++toggleAvailability(): void
++updateLocation(lat,lng): void
++acceptJob(job_id): void
++rejectJob(job_id): void
++markComplete(job_id): void
+«class» ServiceRequest
++request_id: INT (PK)
++customer_id: INT (FK→User)
++latitude: DECIMAL(10,8)
++longitude: DECIMAL(11,8)
++status: ENUM(open|dispatched)
++created_at: TIMESTAMP
+─── Methods ───────────────────
++submit(): Job
++cancelRequest(): void
+«class» Job
++job_id: INT (PK)
++request_id: INT (FK→ServiceRequest)
++driver_id: INT (FK→Driver)
++status: ENUM(pending|accepted|in_progress|completed|cancelled)
++fare_estimate: DECIMAL(8,2)
++assigned_at: TIMESTAMP
++completed_at: TIMESTAMP
+─── Methods ───────────────────
++assignDriver(driver_id): void
++triggerTimeout(): void
++reassign(): void
++complete(): void
+«class» Payment
++payment_id: INT (PK)
++job_id: INT (FK→Job)
++amount: DECIMAL(8,2)
++mpesa_ref: VARCHAR(20)
++status: ENUM(pending|confirmed|failed)
++callback_payload: TEXT
+─── Methods ───────────────────
++initiateSTKPush(): void
++handleCallback(payload): void
++issueReceipt(): void
++processB2CPayout(): void
+«class» Rating
++rating_id: INT (PK)
++job_id: INT (FK→Job)
++driver_id: INT (FK→Driver)
++score: INT (1–5)
++created_at: TIMESTAMP
+─── Methods ───────────────────
++submitRating(score): void
++updateDriverAverage(): void
+Relationships: Driver extends User (inheritance)  |  ServiceRequest has Customer (1–*)  |  Job links ServiceRequest and Driver (1–1)  |  Payment linked to Job (1–1)  |  Rating linked to Job and Driver (1–1)
+Figure 3.6: UML Class Diagram – UsafiLink Core Entity Classes
+Figure 3.7 – UML Sequence Diagram: Service Request Flow
+The UML Sequence Diagram below shows the message flow between system components during a complete service request lifecycle.
+Customer (Browser)
+React Frontend
+Django REST API
+Celery Worker
+Driver (Browser)
+Daraja API
+Submit request →
+POST /request
+Capture GPS
+→ GPS coords
+Query available drivers
+Haversine compute
+→ Assign nearest driver
+Queue 10s timeout →
+→ Start timer
+← Job notification
+Dispatch shown ←
+← Confirm
+[Timer: 10s]
+Accept / Reject →
+← Accept
+Track driver →
+Poll GET /location
+← Driver position
+← GPS data
+→ Update GPS
+Mark complete →
+STK Push →
+→ Trigger STK
+← STK Prompt
+← Prompt sent
+Customer pays
+← Callback
+Receipt ←
+← Receipt
+Log + status update
+Figure 3.7: UML Sequence Diagram – Service Request Lifecycle
+Figure 3.8 – UML State Machine Diagram: Job Lifecycle
+The state machine below shows all possible states of a Job record and the transitions between them.
+State
+Transition Trigger
+Next State / Action
+● INITIAL
+Customer submits service request
+PENDING
+PENDING
+Driver accepts within 10s
+ACCEPTED → Job status updated; tracking begins
+PENDING
+Driver rejects OR timeout (10s)
+PENDING (new driver) → Celery triggers reassignment to next nearest
+PENDING
+No available drivers
+CANCELLED → Customer notified
+ACCEPTED
+Driver marks job as complete
+IN PROGRESS → driver en route
+IN PROGRESS
+Driver arrives and confirms
+COMPLETED → STK Push triggered
+COMPLETED
+M-Pesa callback received
+PAID → Audit logged; receipt issued; driver status reset
+COMPLETED
+Payment fails
+PAYMENT_FAILED → Admin notified; retry available
+Any state
+Admin or system cancellation
+CANCELLED → Audit logged
+PAID / CANCELLED
+—
+■ TERMINAL
+Figure 3.8: UML State Machine – Job Lifecycle States and Transitions
+3.8 Logical Design
+3.8.1 System Architecture
+UsafiLink follows a three-tier Client-Server architecture with a RESTful API middleware layer. This architecture clearly separates the presentation layer from the business logic layer and the data layer, making the system modular, testable, and maintainable.
+Figure 3.9 – System Architecture Diagram
+PRESENTATION LAYER
+React + Vite Web App (Customer & Driver)    |    Django Admin Dashboard (Administrator)
+↕  HTTPS / REST API (JSON) + GPS Polling  ↕
+BUSINESS LOGIC LAYER
+Django REST Framework API    |    Celery Worker + Redis Broker    |    Python Haversine Dispatch    |    M-Pesa Daraja API (STK + B2C)    |    Google Maps API
+↕  SQL Queries  ↕
+DATA LAYER
+SQLite (Development)    →    PostgreSQL + PostGIS (Production)
+Figure 3.9: UsafiLink Three-Tier Client-Server Architecture Diagram
+3.8.2 Control Flow and Process Design
+The core process flow centres on the service request and proximity dispatch cycle. When a customer submits a service request, the browser captures GPS coordinates via the HTML5 Geolocation API and transmits them to the Django backend. The Haversine algorithm queries available drivers, computes distances, and dispatches the nearest driver. A Celery task enforces the ten-second response timeout. Upon completion, M-Pesa STK Push is triggered, the audit log is updated, and the driver's status resets to available.
+Figure 3.10 – Detailed Process Flowchart: Dispatch Algorithm
+The flowchart below details the logic of the Haversine proximity dispatch algorithm.
+● START: Customer submits service request
+1
+Browser invokes HTML5 Geolocation API → captures customer latitude and longitude
+2
+POST /api/service-requests/ → transmit GPS coordinates to Django REST API
+3
+Backend queries Drivers table: SELECT WHERE availability_status = 'available'
+4
+For each available driver: compute Haversine great-circle distance from customer coordinates to driver coordinates
+⬡
+[Decision] Are there any available drivers?
+4a
+→ NO: Return error to customer: 'No drivers available at this time.' Log request as unfulfilled.
+5
+→ YES: Sort drivers by computed distance (ascending). Select driver with minimum distance.
+6
+Create Job record (status = pending). Link to ServiceRequest and assigned Driver.
+7
+Push job notification to assigned driver's web application interface.
+8
+Simultaneously queue Celery task: auto_reassign_job(job_id) with 10-second countdown.
+⬡
+[Decision] Does driver respond within 10 seconds?
+9a
+→ REJECT or TIMEOUT: Celery worker fires; driver marked busy to exclude from next round. Remove driver from available list. Return to Step 3 (next nearest).
+9b
+→ ACCEPT: Update Job status = accepted. Cancel Celery timeout task. Notify customer of acceptance.
+10
+Live tracking begins. Customer polls GET /api/driver-location/{job_id}/ every 5 seconds.
+11
+Driver navigates to customer using embedded Google Maps directions link.
+12
+Driver completes service → taps 'Mark Job Complete' → Job status = completed.
+13
+Django triggers M-Pesa STK Push via Daraja API to customer's M-Pesa phone number.
+⬡
+[Decision] Payment confirmed via Daraja callback?
+14a
+→ PAYMENT FAILED: Log failure in TransactionLog. Alert admin. Allow retry.
+14b
+→ PAYMENT CONFIRMED: Log to TransactionLog. Issue digital receipt. Update Job status = paid.
+15
+Reset Driver availability_status = available. Customer prompted to submit 1–5 star rating.
+■ END: Job complete, payment audited, driver available
+Figure 3.10: Detailed Process Flowchart – Haversine Proximity Dispatch Algorithm
+3.9 Physical Design
+3.9.1 Database Design
+The UsafiLink SQLite development database is organised around eight core tables, designed in third normal form (3NF) to eliminate data redundancy and ensure referential integrity.
+Figure 3.11 – Entity Relationship Diagram (ERD)
+The ERD below shows all entities, their primary and foreign key relationships, and cardinality notation.
+Entity (Table)
+PK
+FK(s)
+Relationships
+Users
+user_id
+—
+1 User → 0..1 Driver (inheritance/extension)
+Drivers
+driver_id
+→ Users(user_id)
+1 Driver → many Jobs, many DriverLocations
+ServiceRequests
+request_id
+→ Users(user_id) as customer
+1 ServiceRequest → 1 Job
+Jobs
+job_id
+→ ServiceRequests, → Drivers
+1 Job → 1 Payment, 1 Rating; links Request↔Driver
+Payments
+payment_id
+→ Jobs(job_id)
+1 Payment per Job; STK Push + B2C payout data
+DriverLocations
+location_id
+→ Drivers(driver_id)
+Many location snapshots per Driver (rolling log)
+Ratings
+rating_id
+→ Jobs(job_id), → Drivers(driver_id)
+1 Rating per completed Job
+TransactionLogs
+log_id
+→ Jobs(job_id), → Payments(payment_id)
+Append-only audit log; 1..* entries per Job
+Figure 3.11: UsafiLink Entity Relationship Diagram (ERD)
+3.9.2 Database Table Schemas
+Table 3.5: Users
+Field
+Data Type
+Constraint
+Description
+user_id
+INT
+PK, AUTO_INCREMENT
+Unique user identifier
+full_name
+VARCHAR(100)
+NOT NULL
+User's full name
+phone_number
+VARCHAR(15)
+UNIQUE, NOT NULL
+M-Pesa registered phone number
+email
+VARCHAR(255)
+UNIQUE, NOT NULL
+Email for OTP verification
+password_hash
+VARCHAR(255)
+NOT NULL
+PBKDF2 hashed password
+role
+ENUM(customer,driver,admin)
+NOT NULL
+User role for access control
+email_verified
+BOOLEAN
+DEFAULT FALSE
+Email OTP verification status
+created_at
+TIMESTAMP
+DEFAULT NOW()
+Account creation timestamp
+Table 3.6: Drivers
+Field
+Data Type
+Constraint
+Description
+driver_id
+INT
+PK, FK → Users
+Links to Users table
+vehicle_plate
+VARCHAR(20)
+NOT NULL
+Exhauster truck registration plate
+availability_status
+ENUM(available,busy,offline)
+DEFAULT 'offline'
+Current driver availability
+current_latitude
+DECIMAL(10,8)
+NULL
+Last known GPS latitude
+current_longitude
+DECIMAL(11,8)
+NULL
+Last known GPS longitude
+location_updated_at
+TIMESTAMP
+NULL
+Timestamp of last GPS update
+cumulative_rating
+FLOAT
+DEFAULT 0.0
+Average customer rating score
+Table 3.7: ServiceRequests
+Field
+Data Type
+Constraint
+Description
+request_id
+INT
+PK, AUTO_INCREMENT
+Unique request identifier
+customer_id
+INT
+FK → Users
+Requesting customer
+latitude
+DECIMAL(10,8)
+NOT NULL
+Customer GPS latitude at submission
+longitude
+DECIMAL(11,8)
+NOT NULL
+Customer GPS longitude at submission
+status
+ENUM(open,dispatched,cancelled)
+NOT NULL
+Current request status
+created_at
+TIMESTAMP
+DEFAULT NOW()
+Request submission timestamp
+Table 3.8: Jobs
+Field
+Data Type
+Constraint
+Description
+job_id
+INT
+PK, AUTO_INCREMENT
+Unique job identifier
+request_id
+INT
+FK → ServiceRequests
+Linked service request
+driver_id
+INT
+FK → Drivers
+Assigned driver
+status
+ENUM(pending,accepted,in_progress,completed,cancelled)
+NOT NULL
+Current job lifecycle status
+assigned_at
+TIMESTAMP
+NULL
+Time driver was dispatched
+completed_at
+TIMESTAMP
+NULL
+Time job was marked complete
+fare_estimate
+DECIMAL(8,2)
+NOT NULL
+Calculated fare at time of dispatch
+Table 3.9: Payments
+Field
+Data Type
+Constraint
+Description
+payment_id
+INT
+PK, AUTO_INCREMENT
+Unique payment identifier
+job_id
+INT
+FK → Jobs
+Associated job
+amount
+DECIMAL(8,2)
+NOT NULL
+Payment amount (KES)
+mpesa_ref
+VARCHAR(20)
+NULL
+M-Pesa transaction reference
+status
+ENUM(pending,confirmed,failed)
+NOT NULL
+Payment confirmation status
+callback_payload
+TEXT
+NULL
+Raw Daraja callback JSON
+created_at
+TIMESTAMP
+DEFAULT NOW()
+Payment initiation timestamp
+Tables 3.5–3.9: UsafiLink SQLite Database Schema Definitions
+3.9.3 User Interface Design
+The user interface for UsafiLink is designed around three distinct user journeys: the customer journey on the responsive web application, the driver journey on the responsive web application, and the administrator journey on the Django-powered web dashboard.
+Figure 3.12 – UI Navigation Flow Diagram
+The diagram below shows the navigation structure and screen transitions for each user role.
+CUSTOMER WEB APPLICATION – Screen Navigation Flow
+1. Auth View
+→
+2. Home View
+→
+3. Dispatch View
+→
+Register / Login OTP Verification 2FA Setup
+GPS Map Request Button
+Driver Confirmed Fare Estimate Driver Details
+→  4. Tracking View  →  5. Payment View  →  6. Rating View
+Live Driver Map + ETA Polling  →  M-Pesa STK Push + Status Indicator  →  1–5 Star Rating Submission
+DRIVER WEB APPLICATION – Screen Navigation Flow
+1. Dashboard (Availability Toggle)  →  2. Job Request View (10s Timer + Accept/Reject)  →  3. Navigation View (Google Maps)  →  4. Job Completion View (Mark Complete + Payment Status)
+ADMIN WEB DASHBOARD – Screen Navigation Flow
+Live Driver Map → Job Management Table (filterable) → Driver Registry + Ratings → Payment & Audit Log → Summary Statistics Panel
+Figure 3.12: UI Navigation Flow Diagram – All User Roles
+Figure 3.13 – UML Component Diagram
+The component diagram below shows the major deployable software components of UsafiLink and their interfaces.
+Component
+Interface / Protocol
+Depends On
+React + Vite Frontend (PWA)
+HTTPS REST API (JSON)
+Django REST API, Google Maps JS API
+Django REST Framework API
+HTTP/JSON (REST endpoints)
+SQLite/PostgreSQL, Celery, Daraja API, Google Maps API
+Haversine Dispatch Module (Python)
+Internal function call
+Driver availability query (Django ORM)
+Celery Worker
+Redis AMQP message queue
+Redis Broker, Django ORM
+Redis Broker
+AMQP (TCP)
+Celery Worker, Django Backend
+SQLite / PostgreSQL+PostGIS
+SQL over file/TCP
+Django ORM
+Safaricom Daraja API (External)
+HTTPS REST (STK Push, B2C, Callback)
+Django REST API (webhook receiver)
+Google Maps Platform (External)
+HTTPS REST + JS SDK
+React Frontend, Django geocoding
+Django Admin Dashboard
+HTTPS (server-rendered HTML)
+Django ORM, REST polling
+Figure 3.13: UML Component Diagram – UsafiLink Software Architecture

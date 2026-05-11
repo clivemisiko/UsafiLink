@@ -31,7 +31,7 @@ const AdminLogs = () => {
     setLoading(true);
     try {
       const data = await adminAPI.getLogs();
-      setLogs(data);
+      setLogs(Array.isArray(data) ? data : data.results || data.data || []);
     } catch (error) {
       toast.error('Failed to fetch audit trails');
     } finally {
@@ -210,8 +210,7 @@ const AdminLogs = () => {
               {filteredLogs.map((log) => (
                 <tr key={log.id} className="hover:bg-emerald-50/5 transition-colors group">
                   <td className="px-8 py-5 whitespace-nowrap">
-                    <div className="text-xs font-black text-gray-800">{formatDate(log.created_at).split(',')[0]}</div>
-                    <div className="text-[10px] font-bold text-gray-400">{formatDate(log.created_at).split(', 1')[1] || formatDate(log.created_at).split(',')[1]}</div>
+                    <div className="text-xs font-black text-gray-800">{formatDate(log.created_at)}</div>
                   </td>
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-3">

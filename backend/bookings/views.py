@@ -1,11 +1,13 @@
 from rest_framework.decorators import action
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from .models import Booking
-from .serializers import BookingSerializer
-from notifications.tasks import send_booking_confirmation_task, send_driver_on_the_way_task, send_driver_accepted_task
+from .models import Booking, DriverSlot
+from .serializers import BookingSerializer, DriverSlotSerializer, DriverSlotCreateSerializer
+from notifications.tasks import send_booking_confirmation_task, send_driver_on_the_way_task, send_driver_accepted_task, send_driver_booking_notification_task
+from users.admin_panel.services import log_system_action
 import logging
 from django.utils import timezone
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -17,18 +19,40 @@ class BookingViewSet(viewsets.ModelViewSet):
         """
         Filter queryset based on user role.
         Customers see their own bookings.
-        Drivers see bookings assigned to them.
+        Drivers see bookings assigned to them OR notified about (Uber-like).
         Admins see all bookings.
         """
+        from django.db.models import Q
         user = self.request.user
         if user.is_authenticated:
             if user.role == 'customer':
-                return Booking.objects.filter(customer=user)
+                return Booking.objects.filter(customer=user).order_by('-created_at')
             elif user.role == 'driver':
-                return Booking.objects.filter(driver=user)
+                # Driver sees bookings they're assigned to OR currently notified about
+                bookings = Booking.objects.filter(
+                    Q(driver=user) | Q(current_notified_driver=user)
+                ).order_by('-created_at')
+                logger.info(f"Driver {user.id} ({user.username}): Found {bookings.count()} bookings")
+                return bookings
             elif user.role == 'admin':
-                return Booking.objects.all()
+                return Booking.objects.all().order_by('-created_at')
         return Booking.objects.none()
+
+    def list(self, request, *args, **kwargs):
+        """List bookings with logging for debugging"""
+        queryset = self.get_queryset()
+        user = request.user
+        
+        logger.info(f"LIST REQUEST: User {user.id} ({user.username}) role={user.role}")
+        logger.info(f"LIST REQUEST: Total matching bookings: {queryset.count()}")
+        
+        # Show details of bookings for debugging
+        for booking in queryset[:5]:
+            logger.info(f"  - Booking #{booking.id}: status={booking.status}, customer={booking.customer_id}, driver={booking.driver_id}, notified_driver={booking.current_notified_driver_id}")
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def available(self, request):
@@ -167,23 +191,96 @@ class BookingViewSet(viewsets.ModelViewSet):
             })
 
     def perform_create(self, serializer):
-        """Create booking and automatically initiate Uber-like driver search"""
-        booking = serializer.save(customer=self.request.user, status='searching_driver')
-        logger.info(f"Booking {booking.id} created at lat={booking.latitude}, lon={booking.longitude}")
-        
-        # Send confirmation SMS asynchronously
-        try:
-            send_booking_confirmation_task.delay(booking.id)
-        except Exception as e:
-            logger.error(f"Failed to queue confirmation SMS: {str(e)}")
-        
-        # Initiate automatic driver search (Uber-like)
-        try:
-            from .tasks import initiate_driver_search_task
-            initiate_driver_search_task.delay(booking.id)
-            logger.info(f"Driver search task queued for booking {booking.id}")
-        except Exception as e:
-            logger.error(f"Failed to initiate driver search: {str(e)}", exc_info=True)
+        """Create booking with slot-based scheduling or Uber-like driver search"""
+        request = self.request
+        slot_id = request.data.get('slot_id')
+
+        if slot_id:
+            # Slot-based booking: reserve the slot and notify the specific driver
+            try:
+                slot = DriverSlot.objects.select_for_update().get(
+                    id=slot_id,
+                    status='available',
+                    date__gte=timezone.now().date()
+                )
+            except DriverSlot.DoesNotExist:
+                raise serializers.ValidationError({'slot_id': 'Slot not found, already booked, or no longer available.'})
+
+            with transaction.atomic():
+                slot.status = 'booked'
+                slot.save(update_fields=['status'])
+
+                booking = serializer.save(
+                    customer=request.user,
+                    driver=None,
+                    status='pending',
+                    slot=slot,
+                    scheduled_date=timezone.make_aware(
+                        timezone.datetime.combine(slot.date, slot.start_time)
+                    ),
+                    current_notified_driver=slot.driver
+                )
+
+            # Notify driver about this slot booking request
+            try:
+                from .tasks import send_driver_order_notification_task
+                send_driver_order_notification_task.delay(booking.id, slot.driver.id)
+            except Exception as e:
+                logger.error(f"Failed to queue slot booking SMS to driver: {str(e)}")
+
+            # Send booking confirmation SMS to customer
+            try:
+                send_booking_confirmation_task.delay(booking.id)
+            except Exception as e:
+                logger.error(f"Failed to queue confirmation SMS: {str(e)}")
+            
+            # Log slot-based booking creation
+            ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+            log_system_action(
+                action='booking_created',
+                user=request.user,
+                details={
+                    'booking_id': booking.id,
+                    'booking_type': 'slot_based',
+                    'slot_id': slot.id,
+                    'driver_id': slot.driver.id,
+                    'scheduled_date': str(slot.date),
+                    'location': booking.location_name or f"lat:{booking.latitude},lon:{booking.longitude}"
+                },
+                ip_address=ip_address
+            )
+        else:
+            # Legacy: Uber-like driver search (no slot selected)
+            booking = serializer.save(customer=request.user, status='searching_driver')
+            logger.info(f"Booking {booking.id} created at lat={booking.latitude}, lon={booking.longitude}")
+            
+            # Log Uber-like booking creation
+            ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+            log_system_action(
+                action='booking_created',
+                user=request.user,
+                details={
+                    'booking_id': booking.id,
+                    'booking_type': 'uber_like',
+                    'location': booking.location_name or f"lat:{booking.latitude},lon:{booking.longitude}",
+                    'service_type': booking.service_type
+                },
+                ip_address=ip_address
+            )
+
+            # Send confirmation SMS asynchronously
+            try:
+                send_booking_confirmation_task.delay(booking.id)
+            except Exception as e:
+                logger.error(f"Failed to queue confirmation SMS: {str(e)}")
+
+            # Initiate automatic driver search (Uber-like)
+            try:
+                from .tasks import initiate_driver_search_task
+                initiate_driver_search_task.delay(booking.id)
+                logger.info(f"Driver search task queued for booking {booking.id}")
+            except Exception as e:
+                logger.error(f"Failed to initiate driver search: {str(e)}", exc_info=True)
     
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def accept(self, request, pk=None):
@@ -216,8 +313,16 @@ class BookingViewSet(viewsets.ModelViewSet):
                     'detail': 'Booking is no longer available.'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Use the service to handle acceptance
-            success = DriverMatchingService.handle_driver_accept(booking, request.user)
+# Slot-based booking acceptance: driver was already selected via a slot
+            if booking.slot and booking.driver is None:
+                booking.driver = request.user
+                booking.status = 'accepted'
+                booking.current_notified_driver = None
+                booking.save(update_fields=['driver', 'status', 'current_notified_driver'])
+                success = True
+            else:
+                # Use the service to handle acceptance for Uber-like bookings
+                success = DriverMatchingService.handle_driver_accept(booking, request.user)
             
             if not success:
                 return Response({
@@ -230,6 +335,20 @@ class BookingViewSet(viewsets.ModelViewSet):
             except Exception as e:
                 logger.error(f"Failed to send driver acceptance SMS: {str(e)}")
             
+            # Log driver assignment
+            ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+            log_system_action(
+                action='driver_assigned',
+                user=request.user,
+                details={
+                    'booking_id': booking.id,
+                    'driver_id': request.user.id,
+                    'driver_name': request.user.get_full_name() or request.user.username,
+                    'assignment_method': 'driver_accept'
+                },
+                ip_address=ip_address
+            )
+            
             return Response({
                 'detail': 'Booking accepted successfully!',
                 'booking': BookingSerializer(booking).data
@@ -240,10 +359,26 @@ class BookingViewSet(viewsets.ModelViewSet):
             if booking.status != 'pending' and booking.status != 'searching_driver':
                 return Response({'detail': 'Booking cannot be accepted.'}, status=status.HTTP_400_BAD_REQUEST)
             
+            previous_driver = booking.driver
             booking.driver = request.user
             booking.status = 'accepted'
             booking.current_notified_driver = None
             booking.save()
+            
+            # Log admin driver assignment
+            ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+            log_system_action(
+                action='driver_assigned',
+                user=request.user,
+                details={
+                    'booking_id': booking.id,
+                    'driver_id': request.user.id,
+                    'driver_name': request.user.get_full_name() or request.user.username,
+                    'assignment_method': 'admin_manual',
+                    'previous_driver': previous_driver.id if previous_driver else None
+                },
+                ip_address=ip_address
+            )
             
             return Response({'detail': 'Booking accepted (admin override).'})
     
@@ -269,6 +404,21 @@ class BookingViewSet(viewsets.ModelViewSet):
                 'detail': 'You cannot reject this order as you were not selected for it.'
             }, status=status.HTTP_403_FORBIDDEN)
         
+        # Slot-based booking rejection: return the slot to available if the selected driver declines
+        if booking.slot and booking.driver is None and booking.current_notified_driver == request.user:
+            with transaction.atomic():
+                booking.status = 'cancelled'
+                booking.current_notified_driver = None
+                booking.save(update_fields=['status', 'current_notified_driver'])
+
+                booking.slot.status = 'available'
+                booking.slot.save(update_fields=['status'])
+
+            return Response({
+                'detail': 'Slot booking rejected. The slot has been released and the booking has been cancelled.',
+                'status': 'cancelled'
+            })
+
         # Use the service to handle rejection (automatically notifies next driver)
         has_more_drivers = DriverMatchingService.handle_driver_reject(booking, request.user)
         
@@ -334,7 +484,6 @@ class BookingViewSet(viewsets.ModelViewSet):
         final_price = booking.estimated_price
         
         # Use transaction to ensure data integrity
-        from django.db import transaction
         from payments.models import Payment
         
         with transaction.atomic():
@@ -342,6 +491,11 @@ class BookingViewSet(viewsets.ModelViewSet):
             booking.completed_at = timezone.now()
             booking.final_price = final_price
             booking.save()
+            
+            # If slot-based, mark slot as completed too
+            if booking.slot:
+                booking.slot.status = 'completed'
+                booking.slot.save()
             
             # Create or Update Payment to PAID
             payment, created = Payment.objects.get_or_create(
@@ -360,6 +514,22 @@ class BookingViewSet(viewsets.ModelViewSet):
                 if not payment.payment_method:
                     payment.payment_method = 'cash'
                 payment.save()
+        
+        # Log service completion
+        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+        log_system_action(
+            action='service_completed',
+            user=request.user,
+            details={
+                'booking_id': booking.id,
+                'driver_id': booking.driver.id if booking.driver else None,
+                'customer_id': booking.customer.id,
+                'final_price': float(final_price),
+                'payment_method': payment.payment_method,
+                'completed_by': 'admin' if is_admin else 'driver'
+            },
+            ip_address=ip_address
+        )
         
         # Send completion SMS
         try:
@@ -391,10 +561,26 @@ class BookingViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return Response({'detail': 'Driver not found or invalid role.'}, status=status.HTTP_404_NOT_FOUND)
         
+        previous_driver = booking.driver
         booking.driver = driver
         if booking.status == 'pending':
             booking.status = 'accepted'
         booking.save()
+        
+        # Log driver assignment by admin
+        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+        log_system_action(
+            action='driver_assigned',
+            user=request.user,
+            details={
+                'booking_id': booking.id,
+                'driver_id': driver.id,
+                'driver_name': driver.get_full_name() or driver.username,
+                'previous_driver': previous_driver.id if previous_driver else None,
+                'assignment_method': 'admin_assign_endpoint'
+            },
+            ip_address=ip_address
+        )
         
         return Response({'detail': f'Driver {driver.username} successfully assigned to booking #{booking.id}.'})
 
@@ -572,6 +758,112 @@ class BookingViewSet(viewsets.ModelViewSet):
 
 from rest_framework.views import APIView
 
+from users.admin_panel.models import Dispute
+from .serializers import CustomerDisputeSerializer
+
+class CustomerDisputeViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CustomerDisputeSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'admin' or user.is_superuser:
+            return Dispute.objects.all().order_by('-created_at')
+        return Dispute.objects.filter(raised_by=user).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        # booking is now validated by the serializer, just need to check ownership
+        booking = serializer.validated_data.get('booking')
+        
+        if booking.customer != self.request.user:
+            raise serializers.ValidationError({'booking': 'You can only raise disputes for your own bookings.'})
+
+        reason = self.request.data.get('reason', '')
+        description = self.request.data.get('description', '')
+        if description:
+            reason = f"{reason}\n\n{description}" if reason else description
+
+        serializer.save(raised_by=self.request.user, reason=reason)
+
+class DriverSlotViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing driver availability slots"""
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = DriverSlotSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'driver':
+            return DriverSlot.objects.filter(driver=user).order_by('-date', '-start_time')
+        elif user.role == 'admin' or user.is_superuser:
+            return DriverSlot.objects.all().order_by('-date', '-start_time')
+        # Customers can see available slots from approved drivers only
+        return DriverSlot.objects.filter(
+            status='available',
+            date__gte=timezone.now().date(),
+            driver__is_driver_approved=True
+        ).order_by('date', 'start_time')
+
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            if self.request.user.role == 'driver':
+                return DriverSlotCreateSerializer
+        return DriverSlotSerializer
+
+    def perform_create(self, serializer):
+        if self.request.user.role != 'driver':
+            raise serializers.ValidationError("Only drivers can create slots.")
+        if not self.request.user.is_driver_approved:
+            raise serializers.ValidationError("Your account must be approved by an admin before you can create slots.")
+        serializer.save(driver=self.request.user)
+
+    def perform_update(self, serializer):
+        if self.request.user.role == 'driver' and serializer.instance.driver != self.request.user:
+            raise serializers.ValidationError("You can only update your own slots.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if self.request.user.role == 'driver' and instance.driver != self.request.user:
+            raise serializers.ValidationError("You can only delete your own slots.")
+        instance.delete()
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def available(self, request):
+        """Get available slots for customers to book"""
+        date = request.query_params.get('date')
+        driver_id = request.query_params.get('driver_id')
+
+        queryset = DriverSlot.objects.filter(
+            status='available',
+            date__gte=timezone.now().date(),
+            driver__is_driver_approved=True
+        )
+
+        if date:
+            queryset = queryset.filter(date=date)
+
+        if driver_id:
+            queryset = queryset.filter(driver__id=driver_id)
+
+        serializer = DriverSlotSerializer(queryset.order_by('date', 'start_time'), many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def my_slots(self, request):
+        """Get current driver's slots"""
+        if request.user.role != 'driver':
+            return Response({'detail': 'Only drivers can access this endpoint.'}, 
+                          status=status.HTTP_403_FORBIDDEN)
+        
+        date = request.query_params.get('date')
+        queryset = DriverSlot.objects.filter(driver=request.user)
+        
+        if date:
+            queryset = queryset.filter(date=date)
+        
+        serializer = DriverSlotSerializer(queryset.order_by('date', 'start_time'), many=True)
+        return Response(serializer.data)
+
+
 class PricingView(APIView):
     permission_classes = [permissions.AllowAny] # Or IsAuthenticated
 
@@ -583,11 +875,11 @@ class PricingView(APIView):
         base_price = 2
         
         tank_prices = {
-            '10': 1,
-            '2000': 2000,
-            '3000': 3000,
-            '5000': 5000,
-            '10000': 10000
+            '1000': 4000,
+            '2000': 6000,
+            '3000': 8000,
+            '5000': 10000,
+            '10000': 15000
         }
         
         tank_charge = tank_prices.get(str(tank_size), 0)

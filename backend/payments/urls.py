@@ -2,9 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     PaymentViewSet, 
-    MpesaCallbackView,
-    MpesaC2BValidationView,
-    MpesaC2BConfirmationView,
+    IntasendCallbackView,
     PaymentWebhookView,
     PaymentReportView
 )
@@ -15,10 +13,8 @@ router.register(r'payments', PaymentViewSet, basename='payment')
 urlpatterns = [
     path('', include(router.urls)),
     
-    # M-PESA endpoints
-    path('mpesa/callback/', MpesaCallbackView.as_view(), name='mpesa-callback'),
-    path('mpesa/c2b/validation/', MpesaC2BValidationView.as_view(), name='mpesa-c2b-validation'),
-    path('mpesa/c2b/confirmation/', MpesaC2BConfirmationView.as_view(), name='mpesa-c2b-confirmation'),
+    # Intasend payment endpoints
+    path('intasend/callback/', IntasendCallbackView.as_view(), name='intasend-callback'),
     
     # Webhooks for other providers
     path('webhook/<str:provider>/', PaymentWebhookView.as_view(), name='payment-webhook'),
@@ -34,6 +30,9 @@ urlpatterns = [
          PaymentViewSet.as_view({'post': 'cancel_payment'}), 
          name='payment-cancel'),
     path('payments/<int:pk>/status/', 
-         PaymentViewSet.as_view({'get': 'payment_status'}), 
+         PaymentViewSet.as_view({'get': 'status'}), 
          name='payment-status'),
+    path('payments/<int:pk>/receipt/', 
+         PaymentViewSet.as_view({'get': 'receipt'}), 
+         name='payment-receipt'),
 ]

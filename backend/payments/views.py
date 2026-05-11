@@ -23,9 +23,10 @@ from .serializers import (
     MpesaSTKPushSerializer,
     BankTransferSerializer
 )
-from .mpesa_service import MpesaService
-from .tasks import process_mpesa_callback_task
-from .utils import format_phone_number, validate_mpesa_response
+from .intasend_service import IntasendService
+from .tasks import process_intasend_callback_task
+from .utils import format_phone_number
+from users.admin_panel.services import log_system_action
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 class PaymentViewSet(viewsets.ModelViewSet):
     """
     ViewSet for handling payment operations.
+    Supports: Mobile Money, Card Payments, Bank Transfers via Intasend.
     """
     queryset = Payment.objects.all()
     permission_classes = [permissions.IsAuthenticated]
@@ -63,9 +65,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(booking__driver=user)
         
         # Simple filtering for all roles
-        status = self.request.query_params.get('status')
-        if status:
-            queryset = queryset.filter(status=status)
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
             
         payment_method = self.request.query_params.get('payment_method')
         if payment_method:
@@ -95,15 +97,21 @@ class PaymentViewSet(viewsets.ModelViewSet):
         )
     
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
-    def initiate_mpesa_payment(self, request):
+    def initiate_payment(self, request):
         """
-        Initiate M-PESA STK Push payment for a booking.
+        Initiate an Intasend payment for a booking.
+        Supports: Mobile Money, Card, Bank Transfer.
         """
-        serializer = MpesaSTKPushSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        booking_id = request.data.get('booking_id')
+        payment_method = request.data.get('payment_method', 'mobile_money')  # mobile_money, card, bank_transfer
+        phone_number = request.data.get('phone_number')
+        email = request.data.get('email', '')
         
-        booking_id = serializer.validated_data['booking_id']
-        phone_number = serializer.validated_data['phone_number']
+        if not booking_id:
+            return Response(
+                {'detail': 'booking_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         try:
             with transaction.atomic():
@@ -128,9 +136,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
-                # Format phone number for M-PESA
-                formatted_phone = format_phone_number(phone_number)
-                
                 # Get amount from booking
                 amount = booking.estimated_price
                 if amount <= 0:
@@ -139,31 +144,39 @@ class PaymentViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
-                # Initiate M-PESA STK Push
-                mpesa_service = MpesaService()
-                try:
-                    response = mpesa_service.stk_push(
-                        phone_number=formatted_phone,
-                        amount=str(amount),
-                        account_reference=f"BK{booking.id:06d}",
-                        transaction_desc=f"Exhauster Service Booking #{booking.id}"
-                    )
-                except Exception as e:
-                    logger.error(f"M-PESA STK Push failed: {str(e)}")
+                # Format phone number
+                if phone_number:
+                    formatted_phone = format_phone_number(phone_number)
+                else:
+                    formatted_phone = format_phone_number(request.user.phone_number) if hasattr(request.user, 'phone_number') else ""
+                
+                if not formatted_phone:
                     return Response(
-                        {
-                            'detail': 'Failed to initiate payment with M-PESA.',
-                            'error': str(e)
-                        },
+                        {'detail': 'Valid phone number is required.'},
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
-                # Validate M-PESA response
-                if not validate_mpesa_response(response):
+                # Use user email if not provided
+                if not email:
+                    email = request.user.email
+                
+                # Initiate Intasend payment
+                intasend_service = IntasendService()
+                try:
+                    response = intasend_service.create_checkout_link(
+                        amount=str(amount),
+                        phone_number=formatted_phone,
+                        email=email,
+                        booking_id=booking.id,
+                        first_name=request.user.first_name,
+                        last_name=request.user.last_name
+                    )
+                except Exception as e:
+                    logger.error(f"Intasend checkout link creation failed: {str(e)}")
                     return Response(
                         {
-                            'detail': 'M-PESA returned an error.',
-                            'mpesa_response': response
+                            'detail': 'Failed to create checkout link with Intasend.',
+                            'error': str(e)
                         },
                         status=status.HTTP_400_BAD_REQUEST
                     )
@@ -173,9 +186,10 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     'booking': booking,
                     'amount': amount,
                     'status': 'pending',
-                    'payment_method': 'mpesa',
-                    'checkout_request_id': response.get('CheckoutRequestID'),
-                    'merchant_request_id': response.get('MerchantRequestID')
+                    'payment_method': payment_method,
+                    'payment_provider': 'intasend',
+                    'intasend_api_ref': response.get('api_ref'),
+                    'invoice_id': response.get('invoice_id')
                 }
                 
                 if existing_payment:
@@ -191,7 +205,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 # Log the transaction
                 TransactionLog.objects.create(
                     payment=payment,
-                    action='stk_push_initiated',
+                    action='intasend_checkout_link_created',
                     data=response,
                     status='success'
                 )
@@ -201,13 +215,52 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     booking.status = 'payment_pending'
                     booking.save()
                 
+                # Handle mock mode - auto-complete payment
+                if response.get('mock_mode'):
+                    payment.status = 'paid'
+                    payment.save()
+                    booking.status = 'accepted'
+                    booking.save()
+                    
+                    # Log payment received
+                    ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+                    log_system_action(
+                        action='payment_received',
+                        user=request.user,
+                        details={
+                            'payment_id': payment.id,
+                            'booking_id': booking.id,
+                            'amount': float(amount),
+                            'payment_method': payment_method,
+                            'mock_mode': True
+                        },
+                        ip_address=ip_address
+                    )
+                    
+                    # Log the mock payment completion
+                    TransactionLog.objects.create(
+                        payment=payment,
+                        action='mock_payment_completed',
+                        data=response,
+                        status='success'
+                    )
+                    
+                    return Response({
+                        'success': True,
+                        'message': 'Mock payment completed successfully (Intasend unavailable).',
+                        'payment_id': payment.id,
+                        'checkout_url': None,
+                        'api_ref': response.get('api_ref'),
+                        'booking_status': booking.status,
+                        'mock_mode': True
+                    }, status=status.HTTP_200_OK)
+                
                 return Response({
                     'success': True,
-                    'message': 'Payment initiated successfully. Please check your phone to complete the payment.',
+                    'message': 'Payment checkout link created successfully.',
                     'payment_id': payment.id,
-                    'checkout_request_id': response.get('CheckoutRequestID'),
-                    'merchant_request_id': response.get('MerchantRequestID'),
-                    'customer_message': response.get('CustomerMessage', ''),
+                    'checkout_url': response.get('checkout_link'),
+                    'api_ref': response.get('api_ref'),
                     'booking_status': booking.status
                 }, status=status.HTTP_200_OK)
                 
@@ -226,15 +279,17 @@ class PaymentViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def initiate_bank_transfer(self, request):
         """
-        Initiate a manual bank transfer payment.
-        The user provides a bank reference, and an admin will verify it.
+        Initiate a manual bank transfer payment via Intasend.
+        The user provides bank details, and Intasend handles the transfer.
         """
-        serializer = BankTransferSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        booking_id = serializer.validated_data['booking_id']
-        bank_reference = serializer.validated_data['bank_reference']
-
+        booking_id = request.data.get('booking_id')
+        
+        if not booking_id:
+            return Response(
+                {'detail': 'booking_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         try:
             with transaction.atomic():
                 booking = Booking.objects.select_for_update().get(
@@ -255,12 +310,35 @@ class PaymentViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
+                # Create checkout link for bank transfer
+                intasend_service = IntasendService()
+                email = request.user.email
+                phone_number = format_phone_number(request.user.phone_number) if hasattr(request.user, 'phone_number') else ""
+                
+                try:
+                    response = intasend_service.create_checkout_link(
+                        amount=str(booking.estimated_price),
+                        phone_number=phone_number,
+                        email=email,
+                        booking_id=booking.id,
+                        first_name=request.user.first_name,
+                        last_name=request.user.last_name
+                    )
+                except Exception as e:
+                    logger.error(f"Intasend bank transfer link creation failed: {str(e)}")
+                    return Response(
+                        {'detail': 'Failed to create bank transfer link.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
                 payment_data = {
                     'booking': booking,
                     'amount': booking.estimated_price,
                     'status': 'pending',
-                    'payment_method': 'bank',
-                    'bank_reference': bank_reference
+                    'payment_method': 'bank_transfer',
+                    'payment_provider': 'intasend',
+                    'intasend_api_ref': response.get('api_ref'),
+                    'invoice_id': response.get('invoice_id')
                 }
 
                 if existing_payment:
@@ -280,17 +358,15 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 TransactionLog.objects.create(
                     payment=payment,
                     action='bank_transfer_initiated',
-                    data={'bank_reference': bank_reference},
+                    data=response,
                     status='success'
                 )
 
-                # Notify admins
-                notify_admins_bank_payment_task.delay(payment.id)
-
                 return Response({
                     'success': True,
-                    'message': 'Bank transfer submitted. Our team will verify the payment within 24 hours.',
-                    'payment_id': payment.id
+                    'message': 'Bank transfer checkout link created. Please complete payment.',
+                    'payment_id': payment.id,
+                    'checkout_url': response.get('checkout_link')
                 }, status=status.HTTP_200_OK)
 
         except Booking.DoesNotExist:
@@ -356,6 +432,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     'amount': amount,
                     'status': 'pending',
                     'payment_method': 'cash',
+                    'payment_provider': 'intasend',
                     'notes': notes
                 }
                 
@@ -414,9 +491,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if payment.payment_method != 'mpesa':
+        if payment.payment_method == 'cash':
             return Response(
-                {'detail': 'Only M-PESA payments can be retried.'},
+                {'detail': 'Cannot retry cash payments through this endpoint.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -427,25 +504,28 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        serializer = MpesaSTKPushSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        phone_number = serializer.validated_data['phone_number']
-        formatted_phone = format_phone_number(phone_number)
+        email = request.user.email
+        phone_number = request.data.get('phone_number')
+        if phone_number:
+            phone_number = format_phone_number(phone_number)
+        else:
+            phone_number = format_phone_number(request.user.phone_number) if hasattr(request.user, 'phone_number') else ""
         
         try:
-            # Retry M-PESA STK Push
-            mpesa_service = MpesaService()
-            response = mpesa_service.stk_push(
-                phone_number=formatted_phone,
+            # Retry Intasend payment
+            intasend_service = IntasendService()
+            response = intasend_service.create_checkout_link(
                 amount=str(payment.amount),
-                account_reference=f"BK{payment.booking.id:06d}",
-                transaction_desc=f"Retry Payment for Booking #{payment.booking.id}"
+                phone_number=phone_number,
+                email=email,
+                booking_id=payment.booking.id,
+                first_name=request.user.first_name,
+                last_name=request.user.last_name
             )
             
-            # Update payment with new request IDs
-            payment.checkout_request_id = response.get('CheckoutRequestID')
-            payment.merchant_request_id = response.get('MerchantRequestID')
+            # Update payment with new API ref
+            payment.intasend_api_ref = response.get('api_ref')
+            payment.invoice_id = response.get('invoice_id')
             payment.status = 'pending'
             payment.save()
             
@@ -460,8 +540,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
             return Response({
                 'success': True,
                 'message': 'Payment retry initiated successfully.',
-                'checkout_request_id': response.get('CheckoutRequestID'),
-                'customer_message': response.get('CustomerMessage', '')
+                'checkout_url': response.get('checkout_link'),
+                'api_ref': response.get('api_ref')
             })
             
         except Exception as e:
@@ -538,30 +618,59 @@ class PaymentViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def status(self, request, pk=None):
-        """Get payment status with proactive M-PESA query fallback."""
+        """Get payment status with proactive Intasend query fallback."""
         payment = self.get_object()
         
-        # If pending, try to query M-PESA directly
-        if payment.status == 'pending' and payment.checkout_request_id:
+        # If pending, try to query Intasend directly
+        if payment.status == 'pending' and payment.intasend_api_ref:
             try:
-                mpesa_service = MpesaService()
-                result = mpesa_service.query_stk_status(payment.checkout_request_id)
+                intasend_service = IntasendService()
+                result = intasend_service.get_payment_status(payment.intasend_api_ref)
                 
-                # Safaricom ResultCode 0 means success
-                result_code = str(result.get('ResultCode', result.get('ResponseCode', '')))
+                state = result.get('state', 'PENDING')
                 
-                if result_code == '0':
+                if state == 'COMPLETE':
                     payment.status = 'paid'
-                    payment.mpesa_receipt = result.get('MpesaReceiptNumber', 'QUERY_SUCCESS')
                     payment.save()
                     # Update booking
                     booking = payment.booking
                     if booking.status in ['pending', 'payment_pending']:
                         booking.status = 'accepted'
                         booking.save()
-                elif result_code in ['1032', '1037', '2001', '1']:
-                    payment.status = 'cancelled'
+                    # Send confirmation
+                    send_payment_confirmation_task.delay(payment.id)
+                    
+                    # Log successful payment
+                    ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+                    log_system_action(
+                        action='payment_received',
+                        user=payment.booking.customer if payment.booking else None,
+                        details={
+                            'payment_id': payment.id,
+                            'booking_id': payment.booking.id if payment.booking else None,
+                            'amount': float(payment.amount),
+                            'payment_method': payment.payment_method,
+                            'intasend_invoice_id': payment.intasend_invoice_id
+                        },
+                        ip_address=ip_address
+                    )
+                elif state == 'FAILED':
+                    payment.status = 'failed'
                     payment.save()
+                    
+                    # Log failed payment
+                    ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+                    log_system_action(
+                        action='payment_failed',
+                        user=payment.booking.customer if payment.booking else None,
+                        details={
+                            'payment_id': payment.id,
+                            'booking_id': payment.booking.id if payment.booking else None,
+                            'amount': float(payment.amount),
+                            'payment_method': payment.payment_method
+                        },
+                        ip_address=ip_address
+                    )
             except Exception as e:
                 logger.error(f"Error checking status for payment {payment.id}: {str(e)}")
 
@@ -571,12 +680,13 @@ class PaymentViewSet(viewsets.ModelViewSet):
             'amount': payment.amount,
             'booking_id': payment.booking.id,
             'booking_status': payment.booking.status,
-            'checkout_request_id': payment.checkout_request_id
+            'api_ref': payment.intasend_api_ref,
+            'payment_method': payment.payment_method
         })
 
     @action(detail=True, methods=['get'])
     def receipt(self, request, pk=None):
-        """Generate a simple HTML receipt for the payment."""
+        """Generate thermal printer style HTML receipt for the payment."""
         from django.http import HttpResponse
         payment = self.get_object()
         
@@ -584,166 +694,295 @@ class PaymentViewSet(viewsets.ModelViewSet):
             return HttpResponse("Receipt is only available for paid payments.", status=400)
             
         booking = payment.booking
-        paid_date = payment.updated_at.strftime("%B %d, %Y at %I:%M %p")
+        paid_date = payment.updated_at.strftime("%d/%m/%Y | %H:%M:%S")
+
+        # Customer and booking details
+        customer = booking.customer
+        customer_name = f"{customer.first_name} {customer.last_name}".strip() or customer.username
+        customer_phone = customer.phone_number or 'N/A'
+        customer_email = customer.email or 'N/A'
+        booking_address = booking.address or booking.location_name or 'N/A'
+        scheduled_date = booking.scheduled_date.strftime("%d/%m/%Y %H:%M") if booking.scheduled_date else 'ASAP'
+        service_type = booking.get_service_type_display().upper() if hasattr(booking, 'get_service_type_display') else booking.service_type.replace('_', ' ').upper()
+        tank_size = booking.get_tank_size_display() if hasattr(booking, 'get_tank_size_display') else getattr(booking, 'tank_size', 'N/A')
+        payment_method_display = payment.get_payment_method_display().upper() if hasattr(payment, 'get_payment_method_display') else payment.payment_method.upper()
+        transaction_id = payment.intasend_api_ref or f"PAY-{payment.id}"
         
         html_content = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <title>Receipt - UsafiLink #{payment.id}</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-                body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; color: #1f2937; padding: 40px; }}
-                .receipt-card {{ background: #ffffff; max-width: 600px; margin: 0 auto; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 40px; border: 1px solid #e5e7eb; }}
-                .header {{ text-align: center; border-bottom: 2px solid #f3f4f6; padding-bottom: 20px; margin-bottom: 30px; }}
-                .logo {{ font-size: 28px; font-weight: 800; color: #2563eb; letter-spacing: -1px; }}
-                .receipt-title {{ font-size: 14px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }}
-                .amount-section {{ text-align: center; margin-bottom: 30px; }}
-                .amount {{ font-size: 48px; font-weight: 800; color: #111827; }}
-                .currency {{ font-size: 24px; color: #6b7280; margin-right: 4px; }}
-                .status-badge {{ display: inline-block; background: #dcfce7; color: #166534; padding: 4px 12px; rounded: 9999px; font-size: 12px; font-weight: 600; text-transform: uppercase; margin-top: 8px; border-radius: 20px; }}
-                .details-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }}
-                .detail-item {{ }}
-                .detail-label {{ font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 4px; }}
-                .detail-value {{ font-size: 16px; font-weight: 600; color: #374151; }}
-                .footer {{ text-align: center; color: #9ca3af; font-size: 12px; margin-top: 40px; border-top: 1px dashed #e5e7eb; padding-top: 20px; }}
-                @media print {{
-                    body {{ background: white; padding: 0; }}
-                    .receipt-card {{ box-shadow: none; border: none; width: 100%; }}
+                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+                body {{ 
+                    font-family: 'Courier New', monospace; 
+                    background-color: #f5f5f5; 
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 100vh;
+                    padding: 20px;
+                }}
+                .thermal-receipt {{
+                    background: white;
+                    width: 100%;
+                    max-width: 400px;
+                    padding: 30px 20px;
+                    border: 1px solid #ddd;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    font-size: 13px;
+                    line-height: 1.6;
+                }}
+                .header {{
+                    text-align: center;
+                    margin-bottom: 15px;
+                    padding-bottom: 10px;
+                    border-bottom: 1px dashed #000;
+                }}
+                .company-name {{
+                    font-size: 18px;
+                    font-weight: bold;
+                    letter-spacing: 2px;
+                    margin-bottom: 8px;
+                }}
+                .datetime {{
+                    font-size: 12px;
+                    margin-bottom: 5px;
+                }}
+                .divider {{
+                    text-align: center;
+                    margin: 12px 0;
+                    color: #666;
+                    font-size: 11px;
+                }}
+                .info-row {{
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 4px;
+                    font-size: 12px;
+                }}
+                .info-label {{
+                    font-weight: bold;
+                    min-width: 60px;
+                }}
+                .info-value {{
+                    text-align: right;
+                    flex: 1;
+                    padding-left: 10px;
+                }}
+                .items-table {{
+                    margin: 15px 0;
+                    width: 100%;
+                    font-size: 12px;
+                }}
+                .table-header {{
+                    display: grid;
+                    grid-template-columns: 2fr 1fr 1fr 1fr;
+                    gap: 8px;
+                    padding: 8px 0;
+                    border-top: 1px dashed #000;
+                    border-bottom: 1px dashed #000;
+                    font-weight: bold;
+                    margin-bottom: 8px;
+                }}
+                .table-row {{
+                    display: grid;
+                    grid-template-columns: 2fr 1fr 1fr 1fr;
+                    gap: 8px;
+                    padding: 6px 0;
+                }}
+                .table-col {{
+                    text-align: right;
+                }}
+                .table-col.left {{
+                    text-align: left;
+                }}
+                .total-section {{
+                    margin: 15px 0;
+                    padding: 10px 0;
+                    border-top: 1px dashed #000;
+                    border-bottom: 1px dashed #000;
+                }}
+                .total-row {{
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 14px;
+                    font-weight: bold;
+                    margin-bottom: 8px;
+                }}
+                .payment-method {{
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 12px;
+                    padding: 8px 0;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 15px;
+                    font-size: 12px;
+                    line-height: 1.8;
+                }}
+                .thank-you {{
+                    font-weight: bold;
+                    margin-bottom: 15px;
+                }}
+                .buttons {{
+                    display: flex;
+                    gap: 10px;
+                    margin-top: 20px;
+                    justify-content: center;
+                }}
+                .btn {{
+                    padding: 10px 30px;
+                    border: none;
+                    border-radius: 6px;
+                    font-weight: bold;
+                    font-size: 13px;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                    font-family: Arial, sans-serif;
+                }}
+                .btn-print {{
+                    background-color: #10b981;
+                    color: white;
+                }}
+                .btn-print:hover {{
+                    background-color: #059669;
+                }}
+                .btn-close {{
+                    background-color: #ef4444;
+                    color: white;
+                }}
+                .btn-close:hover {{
+                    background-color: #dc2626;
                 }}
             </style>
         </head>
         <body>
-            <div class="receipt-card">
+            <div class="thermal-receipt">
+                <!-- Header -->
                 <div class="header">
-                    <div class="logo">UsafiLink</div>
-                    <div class="receipt-title">Official Payment Receipt</div>
+                    <div class="company-name">USAFILINK</div>
+                    <div class="datetime">{paid_date}</div>
                 </div>
-                
-                <div class="amount-section">
-                    <div class="amount"><span class="currency">KES</span>{payment.amount:,.2f}</div>
-                    <div class="status-badge">Paid Successfully</div>
+
+                <!-- Receipt Info -->
+                <div class="divider">.................................</div>
+                <div class="info-row">
+                    <div class="info-label">Receipt #:</div>
+                    <div class="info-value">{payment.id}</div>
                 </div>
-                
-                <div class="details-grid">
-                    <div class="detail-item">
-                        <div class="detail-label">Payment ID</div>
-                        <div class="detail-value">#{payment.id:06d}</div>
+                <div class="info-row">
+                    <div class="info-label">Date:</div>
+                    <div class="info-value">{paid_date}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Customer:</div>
+                    <div class="info-value">{customer_name}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Phone:</div>
+                    <div class="info-value">{customer_phone}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Email:</div>
+                    <div class="info-value">{customer_email}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Booking ID:</div>
+                    <div class="info-value">{booking.id}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Location:</div>
+                    <div class="info-value">{booking_address}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Schedule:</div>
+                    <div class="info-value">{scheduled_date}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Service:</div>
+                    <div class="info-value">{service_type}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Tank Size:</div>
+                    <div class="info-value">{tank_size}</div>
+                </div>
+
+                <!-- Separator -->
+                <div class="divider">.................................</div>
+
+                <!-- Items Table -->
+                <div class="items-table">
+                    <div class="table-header">
+                        <div class="table-col left">Item</div>
+                        <div class="table-col">Qty</div>
+                        <div class="table-col">Price</div>
+                        <div class="table-col">Total</div>
                     </div>
-                    <div class="detail-item">
-                        <div class="detail-label">M-PESA Receipt</div>
-                        <div class="detail-value">{payment.mpesa_receipt or "N/A"}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Service Type</div>
-                        <div class="detail-value">{booking.service_type.replace('_', ' ').title()}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Tank Size</div>
-                        <div class="detail-value">{booking.tank_size} Liters</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Payment Date</div>
-                        <div class="detail-value">{paid_date}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Customer</div>
-                        <div class="detail-value">{booking.customer.get_full_name() or booking.customer.username}</div>
+                    <div class="table-row">
+                        <div class="table-col left">{service_type} / {tank_size}</div>
+                        <div class="table-col">1</div>
+                        <div class="table-col">KES {payment.amount:,.2f}</div>
+                        <div class="table-col">KES {payment.amount:,.2f}</div>
                     </div>
                 </div>
-                
+
+                <!-- Total Section -->
+                <div class="divider">.................................</div>
+                <div class="total-section">
+                    <div class="total-row">
+                        <span>TOTAL:</span>
+                        <span>KES {payment.amount:,.2f}</span>
+                    </div>
+                    <div class="payment-method">
+                        <span>Payment:</span>
+                        <span>{payment_method_display}</span>
+                    </div>
+                </div>
+
+                <!-- Separator -->
+                <div class="divider">.................................</div>
+
+                <!-- Footer -->
                 <div class="footer">
-                    Thank you for choosing UsafiLink.<br>
-                    Email: support@usafilink.com | Tel: +254 700 000 000
+                    <div class="thank-you">Thank you! Come again 🔥</div>
+                    <div>Transaction ID: {transaction_id}</div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="buttons">
+                    <button class="btn btn-print" onclick="window.print()">🖨 PRINT</button>
+                    <button class="btn btn-close" onclick="window.close()">✕ CLOSE</button>
                 </div>
             </div>
-            <div style="text-align: center; margin-top: 20px;">
-                <button onclick="window.print()" style="background: white; border: 1px solid #d1d5db; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Print Receipt</button>
-            </div>
+
+            <script>
+                // Auto-print on page load (optional)
+                // window.print();
+            </script>
         </body>
         </html>
         """
-        return HttpResponse(html_content)
-    
-    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
-    def manual_verify(self, request):
-        """
-        Admin endpoint to manually verify a payment.
-        Useful for cash payments or resolving issues.
-        """
-        if not (getattr(request.user, 'role', None) == 'admin' or request.user.is_staff or request.user.is_superuser):
-            return Response(
-                {'detail': 'Only admins can verify payments.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        payment_id = request.data.get('payment_id')
-        mpesa_receipt = request.data.get('mpesa_receipt')
-        bank_reference = request.data.get('bank_reference')
         
-        try:
-            payment = Payment.objects.get(id=payment_id)
-            
-            if payment.status == 'paid':
-                return Response(
-                    {'detail': 'Payment is already marked as paid.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            with transaction.atomic():
-                payment.mpesa_receipt = mpesa_receipt or payment.mpesa_receipt
-                payment.bank_reference = bank_reference or payment.bank_reference
-                payment.status = 'paid'
-                payment.verified_by = request.user
-                payment.verified_at = datetime.now()
-                payment.save()
-                
-                # Update booking
-                booking = payment.booking
-                if booking.status in ['pending', 'payment_pending']:
-                    booking.status = 'accepted'
-                    booking.save()
-                
-                # Send confirmation
-                send_payment_confirmation_task.delay(payment.id)
-                
-                # Log the manual verification
-                TransactionLog.objects.create(
-                    payment=payment,
-                    action='manual_verification',
-                    data={'verified_by': request.user.id},
-                    status='success'
-                )
-                
-                return Response({
-                    'success': True,
-                    'message': 'Payment manually verified.',
-                    'payment': self.get_serializer(payment).data
-                })
-                
-        except Payment.DoesNotExist:
-            return Response(
-                {'detail': 'Payment not found.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            logger.error(f"Manual verification error: {str(e)}")
-            return Response(
-                {'detail': 'Failed to verify payment.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        return HttpResponse(html_content, content_type="text/html")
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class MpesaCallbackView(APIView):
+class IntasendCallbackView(APIView):
     """
-    Handle M-PESA STK Push callback.
-    This endpoint receives callbacks from Safaricom.
+    Handle Intasend payment webhook callbacks.
+    This endpoint receives payment status updates from Intasend.
     """
     authentication_classes = []
     permission_classes = []
     
     def post(self, request, *args, **kwargs):
         """
-        Process M-PESA callback.
+        Process Intasend callback.
         """
         try:
             # Parse request data
@@ -752,52 +991,57 @@ class MpesaCallbackView(APIView):
             else:
                 callback_data = json.loads(request.body.decode('utf-8'))
             
-            logger.info(f"M-PESA Callback received: {json.dumps(callback_data, indent=2)}")
+            logger.info(f"Intasend Callback received: {json.dumps(callback_data, indent=2)}")
             
             # Log the callback for debugging
             TransactionLog.objects.create(
                 payment=None,
-                action='mpesa_callback_received',
+                action='intasend_callback_received',
                 data=callback_data,
                 status='processing'
             )
             
+            # Validate callback
+            intasend_service = IntasendService()
+            if not intasend_service.validate_callback(callback_data):
+                logger.warning(f"Invalid Intasend callback: {callback_data}")
+                return Response({
+                    "status": "error",
+                    "message": "Invalid callback"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
             # Process callback
-            from django.conf import settings # Added this import
             if settings.DEBUG:
                 # Run synchronously for easier local testing/debugging
-                from .tasks import process_mpesa_callback_task
                 logger.info("Processing callback synchronously (DEBUG=True)")
-                process_mpesa_callback_task(json.dumps(callback_data))
+                process_intasend_callback_task(json.dumps(callback_data))
             else:
                 # Process callback asynchronously using Celery (Production)
-                from .tasks import process_mpesa_callback_task # Moved this import here
-                process_mpesa_callback_task.delay(json.dumps(callback_data))
+                process_intasend_callback_task.delay(json.dumps(callback_data))
             
-            # Immediate response to M-PESA (they expect this quickly)
+            # Immediate response to Intasend (they expect this quickly)
             return Response({
-                "ResultCode": 0,
-                "ResultDesc": "Success"
+                "status": "success",
+                "message": "Callback received"
             }, status=status.HTTP_200_OK)
             
         except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in M-PESA callback: {str(e)}")
+            logger.error(f"Invalid JSON in Intasend callback: {str(e)}")
             return Response({
-                "ResultCode": 1,
-                "ResultDesc": "Invalid JSON"
+                "status": "error",
+                "message": "Invalid JSON"
             }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            logger.error(f"Error processing M-PESA callback: {str(e)}")
+            logger.error(f"Error processing Intasend callback: {str(e)}")
             return Response({
-                "ResultCode": 1,
-                "ResultDesc": "Internal server error"
+                "status": "error",
+                "message": "Internal server error"
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class PaymentWebhookView(APIView):
     """
-    Generic webhook endpoint for other payment providers.
-    Can be extended for PayPal, Stripe, etc.
+    Generic webhook endpoint for payment status updates.
     """
     authentication_classes = []
     permission_classes = []
@@ -821,141 +1065,44 @@ class PaymentWebhookView(APIView):
         return Response({'status': 'received'}, status=status.HTTP_200_OK)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class MpesaC2BValidationView(APIView):
-    """
-    C2B Validation URL (optional - for direct payments without STK Push)
-    """
-    authentication_classes = []
-    permission_classes = []
-    
-    def post(self, request, *args, **kwargs):
-        """
-        Validate C2B payment.
-        """
-        data = request.data
-        
-        # Extract payment details
-        transaction_type = data.get('TransactionType')
-        trans_id = data.get('TransID')
-        trans_time = data.get('TransTime')
-        trans_amount = data.get('TransAmount')
-        business_short_code = data.get('BusinessShortCode')
-        bill_ref_number = data.get('BillRefNumber')
-        invoice_number = data.get('InvoiceNumber')
-        org_account_balance = data.get('OrgAccountBalance')
-        third_party_trans_id = data.get('ThirdPartyTransID')
-        msisdn = data.get('MSISDN')
-        first_name = data.get('FirstName')
-        middle_name = data.get('MiddleName')
-        last_name = data.get('LastName')
-        
-        # Log the validation request
-        TransactionLog.objects.create(
-            payment=None,
-            action='c2b_validation',
-            data=data,
-            status='validating'
-        )
-        
-        # Here you would validate the payment
-        # For example, check if bill_ref_number matches a booking ID
-        
-        # Always accept validation (actual verification happens in confirmation)
-        response = {
-            "ResultCode": 0,
-            "ResultDesc": "Accepted"
-        }
-        
-        return Response(response, status=status.HTTP_200_OK)
-
-
-@method_decorator(csrf_exempt, name='dispatch')
-class MpesaC2BConfirmationView(APIView):
-    """
-    C2B Confirmation URL (optional - for direct payments without STK Push)
-    """
-    authentication_classes = []
-    permission_classes = []
-    
-    def post(self, request, *args, **kwargs):
-        """
-        Confirm C2B payment.
-        """
-        data = request.data
-        
-        # Process confirmation asynchronously
-        from .tasks import process_c2b_confirmation_task
-        process_c2b_confirmation_task.delay(json.dumps(data))
-        
-        return Response({
-            "ResultCode": 0,
-            "ResultDesc": "Success"
-        }, status=status.HTTP_200_OK)
-
-
 class PaymentReportView(APIView):
     """
     Generate payment reports (admin only).
     """
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated]
     
-    def get(self, request, *args, **kwargs):
-        """
-        Generate payment report with filters.
-        """
-        date_from = request.query_params.get('date_from')
-        date_to = request.query_params.get('date_to')
-        status = request.query_params.get('status')
-        payment_method = request.query_params.get('payment_method')
+    def get(self, request):
+        """Get payment statistics and reports."""
+        if request.user.role not in ['admin', 'staff']:
+            return Response(
+                {'detail': 'Only admins can access payment reports.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         
-        queryset = Payment.objects.all()
+        # Time period filter
+        days = int(request.query_params.get('days', 30))
+        start_date = datetime.now() - timedelta(days=days)
         
-        # Apply filters
-        if date_from:
-            queryset = queryset.filter(created_at__gte=date_from)
-        if date_to:
-            queryset = queryset.filter(created_at__lte=date_to)
-        if status:
-            queryset = queryset.filter(status=status)
-        if payment_method:
-            queryset = queryset.filter(payment_method=payment_method)
+        payments = Payment.objects.filter(created_at__gte=start_date)
         
-        # Aggregate data
-        total_payments = queryset.count()
-        total_amount = queryset.aggregate(models.Sum('amount'))['amount__sum'] or 0
+        # Calculate statistics
+        total_amount = sum(p.amount for p in payments if p.status == 'paid')
+        total_payments = payments.filter(status='paid').count()
+        pending_payments = payments.filter(status='pending').count()
+        failed_payments = payments.filter(status='failed').count()
         
-        # Group by status
-        status_summary = queryset.values('status').annotate(
-            count=models.Count('id'),
-            total=models.Sum('amount')
-        )
-        
-        # Group by payment method
-        method_summary = queryset.values('payment_method').annotate(
-            count=models.Count('id'),
-            total=models.Sum('amount')
-        )
-        
-        # Daily summary (last 30 days)
-        thirty_days_ago = datetime.now() - timedelta(days=30)
-        daily_summary = queryset.filter(
-            created_at__gte=thirty_days_ago
-        ).extra(
-            {'date': "DATE(created_at)"}
-        ).values('date').annotate(
-            count=models.Count('id'),
-            total=models.Sum('amount')
-        ).order_by('date')
+        # Payment method breakdown
+        payment_methods = {}
+        for payment in payments.filter(status='paid'):
+            method = payment.get_payment_method_display()
+            payment_methods[method] = payment_methods.get(method, 0) + float(payment.amount)
         
         return Response({
-            'summary': {
-                'total_payments': total_payments,
-                'total_amount': float(total_amount),
-                'date_from': date_from,
-                'date_to': date_to
-            },
-            'status_summary': list(status_summary),
-            'method_summary': list(method_summary),
-            'daily_summary': list(daily_summary)
+            'period_days': days,
+            'total_amount': float(total_amount),
+            'total_payments': total_payments,
+            'pending_payments': pending_payments,
+            'failed_payments': failed_payments,
+            'average_payment': float(total_amount / total_payments) if total_payments > 0 else 0,
+            'payment_methods': payment_methods
         })

@@ -57,12 +57,26 @@ class Booking(models.Model):
     special_instructions = models.TextField(blank=True)
     
     # Scheduling
-    scheduled_date = models.DateTimeField()
+    scheduled_date = models.DateTimeField(null=True, blank=True)
     
     # Pricing
     estimated_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     final_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
+    # Trip tracking
+    distance_km = models.FloatField(default=0.0, null=True, blank=True, help_text="Distance traveled in kilometers")
+    waste_emptied_liters = models.FloatField(default=0.0, null=True, blank=True, help_text="Amount of waste emptied in liters")
+    fuel_used_liters = models.FloatField(default=0.0, null=True, blank=True, help_text="Fuel used for this job")
+    
+    # Slot-based scheduling (new)
+    slot = models.OneToOneField(
+        'DriverSlot',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='booking'
+    )
+
     # Status
     status = models.CharField(max_length=25, choices=STATUS_CHOICES, default='pending')
     
@@ -73,6 +87,64 @@ class Booking(models.Model):
 
     def __str__(self):
         return f"Booking {self.id} - {self.get_service_type_display()} - {self.status}"
+
+
+class DriverSlot(models.Model):
+    STATUS_CHOICES = (
+        ('available', 'Available'),
+        ('booked', 'Booked'),
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    )
+
+    driver = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='driver_slots',
+        limit_choices_to={'role': 'driver'}
+    )
+
+    # Date and time range for this slot
+    date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    # Current status
+    status = models.CharField(
+        max_length=15,
+        choices=STATUS_CHOICES,
+        default='available'
+    )
+
+    # Optional note the driver can add
+    note = models.CharField(max_length=255, blank=True, null=True)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['date', 'start_time']
+        # Prevent overlapping slots for the same driver
+        constraints = [
+            models.UniqueConstraint(
+                fields=['driver', 'date', 'start_time'],
+                name='unique_driver_slot_time'
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.driver.username} - {self.date} {self.start_time.strftime('%H:%M')}-{self.end_time.strftime('%H:%M')} ({self.status})"
+
+    @property
+    def is_available(self):
+        return self.status == 'available'
+
+    @property
+    def label(self):
+        return f"{self.start_time.strftime('%I:%M %p')} - {self.end_time.strftime('%I:%M %p')}"
+
 
 class Rating(models.Model):
     booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name='rating')

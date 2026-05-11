@@ -10,17 +10,17 @@ const KB = [
   },
   {
     patterns: ['book', 'booking', 'order', 'schedule', 'hire', 'request'],
-    reply: "📅 **Booking is super easy!** Here's how:\n\n1️⃣ Enter your location at the top of this page\n2️⃣ Choose your truck size\n3️⃣ Click **\"Book Now\"** — you'll be prompted to login/sign up\n4️⃣ Confirm your booking & pay via M-Pesa or cash\n\nYour driver will be assigned instantly! ⚡",
+    reply: "📅 **Booking is super easy!** Here's how:\n\n1️⃣ Enter your location at the top of this page\n2️⃣ Choose your truck size\n3️⃣ Click **\"Book Now\"** — you'll be prompted to login/sign up\n4️⃣ Confirm your booking & pay via IntaSend (M-Pesa/card) or cash\n\nYour driver will be assigned instantly! ⚡",
     suggestions: ['What sizes are available?', 'Do I need to sign up?', 'How fast is response?'],
   },
   {
     patterns: ['price', 'cost', 'how much', 'bei', 'charge', 'fee', 'pricing', 'rates'],
-    reply: "💰 **Our pricing is transparent & all-inclusive:**\n\n🚛 **Compact (1,000L)** — KES 2,000\n🚚 **Standard (2,000L)** — KES 3,500 ⭐ Popular\n🚜 **Plus (3,000L)** — KES 5,000\n🚛 **Premium (5,000L)** — KES 7,500\n🚚 **XL (10,000L)** — KES 12,000\n\nAll prices include labour & disposal fees. No hidden charges!",
+    reply: "💰 **Our pricing is transparent & all-inclusive:**\n\n🚛 **Compact (1,000L)** — KES 4,000\n🚚 **Standard (2,000L)** — KES 6,000 ⭐ Popular\n🚜 **Plus (3,000L)** — KES 8,000\n🚛 **Premium (5,000L)** — KES 10,000\n🚚 **XL (10,000L)** — KES 15,000\n\nAll prices include labour & disposal fees. No hidden charges!",
     suggestions: ['How do I pay?', 'What size do I need?', 'Are there discounts?'],
   },
   {
-    patterns: ['pay', 'payment', 'mpesa', 'm-pesa', 'card', 'cash', 'lipa'],
-    reply: "💳 **We accept the following payment methods:**\n\n📱 **M-Pesa** — Fastest! Pay with STK push (lipa na M-Pesa)\n💵 **Cash** — Pay the driver on arrival\n\nAll transactions are secure and you'll receive an automatic SMS receipt.",
+    patterns: ['pay', 'payment', 'mpesa', 'm-pesa', 'card', 'cash', 'lipa', 'intasend'],
+    reply: "💳 **We accept the following payment methods:**\n\n📱 **Mobile Money (IntaSend)** — Pay via M-Pesa through IntaSend's secure checkout\n💵 **Cash** — Pay the driver on arrival\n🏦 **Bank Transfer** — Submit your reference for manual verification\n\nAll transactions are secure and you'll receive an automatic SMS receipt.",
     suggestions: ['How do I book?', 'Is it safe?', 'Do you give receipts?'],
   },
   {
@@ -35,7 +35,7 @@ const KB = [
   },
   {
     patterns: ['area', 'location', 'nairobi', 'where', 'cover', 'service area', 'available', 'region'],
-    reply: "📍 **We currently serve all of Nairobi and surrounding areas:**\n\n✅ Westlands, Kilimani, Karen\n✅ CBD, Parklands, Lavington\n✅ Kasarani, Ruiru, Thika Road\n✅ South B, South C, Langata\n✅ Eastlands, Kayole, Umoja\n\nEnter your address on the booking form — we'll confirm availability instantly!",
+    reply: "📍 **We currently serve the following areas:**\n\n✅ Highpoint\n✅ Juja\n✅ Kimbo\n✅ K road\n✅ Matangi\n✅ Ruiru\n✅ Sewage\n✅ Toll\n\nSelect your area from the dropdown at the top of the page — we'll confirm availability instantly!",
     suggestions: ['Book now', 'How does it work?', 'Pricing'],
   },
   {
@@ -75,7 +75,7 @@ const KB = [
   },
   {
     patterns: ['cancel', 'refund', 'reschedule', 'change', 'modify'],
-    reply: "↩️ **Cancellation & Refund Policy:**\n\n✅ Cancel before driver dispatched → **Full refund**\n⏳ Cancel after dispatch → **50% refund**\n❌ Cancel on arrival → **No refund**\n\nRefunds via M-Pesa within 24-48 hours. To cancel, go to your booking in the Dashboard.",
+    reply: "↩️ **Cancellation & Refund Policy:**\n\n✅ Cancel before driver dispatched → **Full refund**\n⏳ Cancel after dispatch → **50% refund**\n❌ Cancel on arrival → **No refund**\n\nRefunds processed via IntaSend within 24-48 hours. To cancel, go to your booking in the Dashboard.",
     suggestions: ['How to book?', 'Contact support', 'Pricing'],
   },
   {

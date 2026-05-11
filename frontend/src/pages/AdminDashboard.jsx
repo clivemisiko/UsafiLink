@@ -78,12 +78,12 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="w-full space-y-8 animate-in fade-in duration-500">
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-emerald-700 to-teal-800 rounded-[2rem] p-8 text-white shadow-xl shadow-emerald-200 relative overflow-hidden">
+      <div className="bg-ink rounded-[2rem] p-8 text-white shadow-xl shadow-slate-200 relative overflow-hidden">
         <div className="relative z-10">
           <h1 className="text-3xl font-black">Welcome back, Admin!</h1>
-          <p className="mt-2 text-emerald-100 font-medium opacity-90">System operations are stable. You have {pendingPayments.length} pending verifications.</p>
+          <p className="mt-2 text-parchment font-medium opacity-90">System operations are stable. You have {pendingPayments.length} pending verifications.</p>
         </div>
         <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/10 -skew-x-12 translate-x-1/2"></div>
         <Activity className="absolute right-12 top-1/2 -translate-y-1/2 w-24 h-24 text-white/10" />
@@ -255,6 +255,9 @@ const AdminDashboard = () => {
         </div>
       </div>
 
+      {/* Driver Management Section */}
+      <DriverManagementSection />
+
       {/* Bottom Section: Activities */}
       <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-8 border-b border-gray-50 flex items-center justify-between">
@@ -311,6 +314,162 @@ const AdminDashboard = () => {
           </table>
         </div>
       </div>
+    </div>
+  );
+};
+
+const DriverManagementSection = () => {
+  const [pendingDrivers, setPendingDrivers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(null);
+
+  useEffect(() => {
+    fetchPendingDrivers();
+  }, []);
+
+  const fetchPendingDrivers = async () => {
+    setLoading(true);
+    try {
+      const response = await adminAPI.getPendingDrivers();
+      setPendingDrivers(response.pending_drivers || []);
+    } catch (error) {
+      console.error('Error fetching pending drivers:', error);
+      toast.error('Failed to load pending drivers');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproveDriver = async (userId) => {
+    setActionLoading(userId);
+    try {
+      await adminAPI.approveDriver(userId);
+      toast.success('Driver approved successfully!');
+      fetchPendingDrivers();
+    } catch (error) {
+      console.error('Error approving driver:', error);
+      toast.error('Failed to approve driver');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectDriver = async (userId) => {
+    if (!window.confirm('Are you sure you want to reject this driver? This action cannot be undone.')) {
+      return;
+    }
+
+    setActionLoading(userId);
+    try {
+      await adminAPI.rejectDriver(userId);
+      toast.success('Driver rejected and removed');
+      fetchPendingDrivers();
+    } catch (error) {
+      console.error('Error rejecting driver:', error);
+      toast.error('Failed to reject driver');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-8">
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
+      <div className="p-8 border-b border-gray-50 flex items-center justify-between">
+        <div>
+          <h3 className="text-xl font-black text-gray-900">Driver Approvals</h3>
+          <p className="text-sm text-gray-400 font-medium">
+            {pendingDrivers.length > 0 
+              ? `${pendingDrivers.length} driver${pendingDrivers.length > 1 ? 's' : ''} waiting for approval`
+              : 'No pending driver approvals'
+            }
+          </p>
+        </div>
+        {pendingDrivers.length > 0 && (
+          <span className="bg-amber-50 text-amber-600 text-[10px] font-black uppercase px-3 py-1 rounded-full tracking-wider">
+            Review Required
+          </span>
+        )}
+      </div>
+
+      {pendingDrivers.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50/50 text-gray-400 uppercase text-[10px] font-black tracking-widest">
+              <tr>
+                <th className="px-8 py-5">Driver Details</th>
+                <th className="px-8 py-5">License Info</th>
+                <th className="px-8 py-5">Registered</th>
+                <th className="px-8 py-5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {pendingDrivers.map((driver) => (
+                <tr key={driver.id} className="hover:bg-amber-50/30 transition-colors">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center text-sm font-black text-amber-600">
+                        {driver.first_name?.charAt(0) || driver.username?.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-gray-800">
+                          {driver.first_name} {driver.last_name}
+                        </div>
+                        <div className="text-xs text-gray-400">{driver.email}</div>
+                        <div className="text-xs text-gray-400">{driver.phone_number}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="text-sm font-bold text-gray-700">{driver.driver_license_number}</div>
+                    <div className="text-xs text-gray-400">
+                      Expires: {new Date(driver.driver_license_expiry_date).toLocaleDateString()}
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="text-sm font-bold text-gray-700">
+                      {new Date(driver.date_joined).toLocaleDateString()}
+                    </div>
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => handleApproveDriver(driver.id)}
+                        disabled={actionLoading === driver.id}
+                        className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {actionLoading === driver.id ? 'Approving...' : 'Approve'}
+                      </button>
+                      <button
+                        onClick={() => handleRejectDriver(driver.id)}
+                        disabled={actionLoading === driver.id}
+                        className="px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {actionLoading === driver.id ? 'Rejecting...' : 'Reject'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="p-12 text-center">
+          <CheckCircle2 className="w-16 h-16 text-emerald-200 mx-auto mb-4" />
+          <h4 className="text-lg font-bold text-gray-600 mb-2">All Caught Up!</h4>
+          <p className="text-sm text-gray-400">No pending driver approvals at this time.</p>
+        </div>
+      )}
     </div>
   );
 };

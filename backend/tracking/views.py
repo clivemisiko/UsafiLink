@@ -31,11 +31,17 @@ class DriverLocationViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def get_queryset(self):
-        """Drivers only see their location; Admins and customers see all"""
+        """Drivers only see their own location; admins and customers can filter or see all."""
         user = self.request.user
+        queryset = self.queryset
+        driver_id = self.request.query_params.get('driver_id')
+
+        if driver_id:
+            queryset = queryset.filter(driver_id=driver_id)
+
         if user.role == 'driver':
-            return self.queryset.filter(driver=user)
-        return self.queryset
+            return queryset.filter(driver=user)
+        return queryset
     
     @action(detail=False, methods=['get'])
     def nearby(self, request):

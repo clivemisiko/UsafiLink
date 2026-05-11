@@ -1,31 +1,212 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
+@reference "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════
+   USAFILINK THEME - Global Color System
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Primary Palette */
+  --ink: #1a1a18;
+  --parchment: #f5f0e8;
+  --cream: #faf7f2;
+  --white: #ffffff;
+  
+  /* Accent Colors */
+  --sage: #4a7c59;
+  --sage-light: #6a9e79;
+  --sage-muted: #d4e6da;
+  --sand: #e8d5b0;
+  --rust: #c4622d;
+  --stone: #8a8475;
+  
+  /* Semantic Colors */
+  --success: var(--sage);
+  --success-light: var(--sage-light);
+  --success-muted: var(--sage-muted);
+  --warning: var(--sand);
+  --error: var(--rust);
+  --text-primary: var(--ink);
+  --text-secondary: var(--stone);
+  --text-muted: rgba(26, 26, 24, 0.6);
+  --bg-primary: var(--parchment);
+  --bg-secondary: var(--cream);
+  --border-light: rgba(26, 26, 24, 0.08);
+  --border-lighter: rgba(26, 26, 24, 0.05);
+}
 
 /* Base styles */
 html, body, #root {
   height: 100%;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', 'Inter', sans-serif;
+  background-color: var(--parchment);
+  color: var(--ink);
 }
 
 html {
   scroll-behavior: smooth;
 }
 
-/* Slide-up animation for sticky booking bar */
+/* ───────────────────────────────────────────────────────────────────────
+   COMPONENT UTILITIES
+   ─────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+  .btn-primary {
+    padding: 0.5rem 1rem;
+    background-color: var(--sage);
+    color: var(--white);
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--sage-light);
+  }
+
+  .btn-secondary {
+    padding: 0.5rem 1rem;
+    background-color: var(--cream);
+    color: var(--ink);
+    border: 1px solid var(--border-light);
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--parchment);
+  }
+
+  .btn-ghost {
+    padding: 0.5rem 1rem;
+    color: var(--sage);
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+  }
+
+  .btn-ghost:hover {
+    background-color: var(--sage-muted);
+  }
+
+  /* Cards */
+  .card,
+  .card-elevated {
+    background-color: var(--white);
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-light);
+    padding: 1rem;
+  }
+
+  .card {
+    box-shadow: 0 1px 2px rgba(26, 26, 24, 0.05);
+  }
+
+  .card-elevated {
+    box-shadow: 0 4px 6px rgba(26, 26, 24, 0.08);
+  }
+
+  /* Badges */
+  .badge-success,
+  .badge-warning,
+  .badge-error {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge-success {
+    background-color: var(--sage-muted);
+    color: var(--sage);
+  }
+
+  .badge-warning {
+    background-color: #fef3c7;
+    color: #a16207;
+  }
+
+  .badge-error {
+    background-color: #fee2e2;
+    color: #b91c1c;
+  }
+
+  /* Text Utilities */
+  .text-header {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .text-subheader {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .text-muted {
+    color: var(--stone);
+    font-size: 0.875rem;
+  }
+
+  /* Borders */
+  .border-base {
+    border: 1px solid var(--border-light);
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   ANIMATIONS
+   ─────────────────────────────────────────────────────────────────────── */
+
 @keyframes slide-up {
   from { transform: translateY(100%); opacity: 0; }
   to   { transform: translateY(0);   opacity: 1; }
 }
+
 .animate-slide-up {
   animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Thin scrollbar for chatbot */
-.overflow-y-auto::-webkit-scrollbar { width: 4px; }
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-in forwards;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+   SCROLLBAR STYLING
+   ─────────────────────────────────────────────────────────────────────── */
+
+.overflow-y-auto::-webkit-scrollbar { width: 8px; }
 .overflow-y-auto::-webkit-scrollbar-track { background: transparent; }
-.overflow-y-auto::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
-.overflow-y-auto::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.overflow-y-auto::-webkit-scrollbar-thumb { 
+  background: var(--sage-muted);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.overflow-y-auto::-webkit-scrollbar-thumb:hover { 
+  background: var(--sage);
+  background-clip: padding-box;
+}
 

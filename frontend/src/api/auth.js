@@ -3,7 +3,11 @@ import axiosInstance from './axiosConfig';
 export const authAPI = {
   // Login
   login: async (credentials) => {
-    const response = await axiosInstance.post('/users/login/', credentials);
+    const payload = {
+      username: credentials.email || credentials.username,
+      password: credentials.password
+    };
+    const response = await axiosInstance.post('/users/login/', payload);
     if (response.data.access) {
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
@@ -14,6 +18,16 @@ export const authAPI = {
   // Register
   register: async (userData) => {
     const response = await axiosInstance.post('/users/register/', userData);
+    return response.data;
+  },
+
+  // Google Login
+  googleLogin: async (data) => {
+    const response = await axiosInstance.post('/users/google-auth/', data);
+    if (response.data.access) {
+      localStorage.setItem('access_token', response.data.access);
+      localStorage.setItem('refresh_token', response.data.refresh);
+    }
     return response.data;
   },
 

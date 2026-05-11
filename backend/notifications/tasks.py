@@ -52,10 +52,11 @@ def send_payment_confirmation_task(payment_id):
     """Send payment confirmation SMS"""
     try:
         payment = Payment.objects.get(id=payment_id)
+        ref = payment.intasend_api_ref or 'N/A'
         message = (
             f"Payment of KES {payment.amount} received!\n"
             f"For booking #{payment.booking.id}\n"
-            f"Receipt: {payment.mpesa_receipt}\n"
+            f"Ref: {ref}\n"
             f"Thank you!"
         )
         return sms_service.send_sms(payment.booking.customer.phone_number, message)
@@ -63,15 +64,61 @@ def send_payment_confirmation_task(payment_id):
         logger.error(f"Payment confirmation task failed: {str(e)}")
         return {"success": False, "error": str(e)}
 
+
+@shared_task
+def send_driver_booking_notification_task(booking_id):
+    """Send SMS notification to the assigned driver when a booking is created/assigned"""
+    try:
+        booking = Booking.objects.get(id=booking_id)
+        driver = booking.driver
+        if not driver:
+            logger.warning(f"No driver assigned to booking {booking_id}, skipping driver SMS")
+            return {"success": False, "error": "No driver assigned"}
+        
+        if not driver.phone_number:
+            logger.warning(f"Driver {driver.username} has no phone number, skipping SMS")
+            return {"success": False, "error": "Driver has no phone number"}
+        
+        service_label = booking.get_service_type_display()
+        schedule_label = booking.scheduled_date.strftime('%d/%m/%Y %H:%M')
+        est_price_label = f"{booking.estimated_price}"
+        location_label = booking.location_name or booking.address or "N/A"
+
+        message = (
+            f"🚛 New Order Alert! #{booking.id}\n"
+            f"📍 {location_label}\n"
+            f"📏 Service: {service_label}\n"
+            f"💰 KES {est_price_label}\n"
+            f"⏰ {schedule_label}\n"
+            f"Tap to accept within 30 seconds!"
+        )
+        result = sms_service.send_sms(driver.phone_number, message)
+        logger.info(f"Driver booking notification sent to {driver.phone_number}: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Driver booking notification task failed: {str(e)}")
+        return {"success": False, "error": str(e)}
+
 @shared_task
 def send_driver_accepted_task(booking_id):
     """Send SMS when driver accepts the booking"""
     try:
         booking = Booking.objects.get(id=booking_id)
+        customer_phone = booking.customer.phone_number
         driver_name = booking.driver.get_full_name() or booking.driver.username
         driver_phone = booking.driver.phone_number
         service_type = booking.get_service_type_display()
         scheduled_time = booking.scheduled_date.strftime('%H:%M')
+        
+        if not customer_phone:
+            logger.warning(f"Booking {booking_id} has no customer phone number; cannot send acceptance SMS")
+            return {"success": False, "error": "No customer phone number"}
+        
+        if customer_phone == driver_phone:
+            logger.warning(
+                f"Booking {booking_id} customer and driver share the same phone number: {customer_phone}. "
+                "Verify user data to avoid sending the wrong recipient."
+            )
         
         message = (
             f"Great news! Driver {driver_name} has accepted your booking!\n"
@@ -81,7 +128,8 @@ def send_driver_accepted_task(booking_id):
             f"Booking #: {booking.id}\n"
             f"Track your booking in the UsafiLink app."
         )
-        return sms_service.send_sms(booking.customer.phone_number, message)
+        logger.info(f"Sending booking acceptance SMS to customer {booking.customer.username} at {customer_phone}")
+        return sms_service.send_sms(customer_phone, message)
     except Exception as e:
         logger.error(f"Driver acceptance SMS task failed: {str(e)}")
         return {"success": False, "error": str(e)}

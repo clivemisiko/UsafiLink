@@ -47,8 +47,8 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-all animate-fadeIn">
-            <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100 flex flex-col animate-scaleIn">
-                <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-gradient-to-r from-emerald-600 to-teal-600">
+            <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden border border-border-light flex flex-col animate-scaleIn">
+                <div className="p-6 border-b border-border-lighter flex items-center justify-between bg-gradient-to-r from-sage to-sage-light">
                     <div className="flex items-center text-white">
                         <Lock className="w-5 h-5 mr-3" />
                         <h2 className="text-xl font-bold">Change Password</h2>
@@ -64,43 +64,43 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
                 <form onSubmit={handleSubmit} className="p-8 space-y-6">
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Current Password</label>
+                            <label className="block text-sm font-bold text-ink mb-2">Current Password</label>
                             <div className="relative group">
                                 <input
                                     type={showOld ? "text" : "password"}
                                     required
                                     value={formData.old_password}
                                     onChange={(e) => setFormData({ ...formData, old_password: e.target.value })}
-                                    className="w-full pl-4 pr-12 py-3.5 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all group-focus-within:bg-white"
+                                    className="w-full pl-4 pr-12 py-3.5 bg-cream border-2 border-border-light rounded-2xl focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent transition-all group-focus-within:bg-white"
                                     placeholder="Enter current password"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowOld(!showOld)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-emerald-600 transition-colors"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-stone hover:text-sage transition-colors"
                                 >
                                     {showOld ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
                             </div>
                         </div>
 
-                        <div className="h-px bg-gray-100 my-2" />
+                        <div className="h-px bg-border-light my-2" />
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">New Password</label>
+                            <label className="block text-sm font-bold text-ink mb-2">New Password</label>
                             <div className="relative group">
                                 <input
                                     type={showNew ? "text" : "password"}
                                     required
                                     value={formData.new_password}
                                     onChange={(e) => setFormData({ ...formData, new_password: e.target.value })}
-                                    className="w-full pl-4 pr-12 py-3.5 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all group-focus-within:bg-white"
+                                    className="w-full pl-4 pr-12 py-3.5 bg-cream border-2 border-border-light rounded-2xl focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent transition-all group-focus-within:bg-white"
                                     placeholder="At least 8 characters"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowNew(!showNew)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-emerald-600 transition-colors"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-stone hover:text-sage transition-colors"
                                 >
                                     {showNew ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
@@ -108,27 +108,29 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Confirm New Password</label>
+                            <label className="block text-sm font-bold text-ink mb-2">Confirm New Password</label>
                             <div className="relative group">
                                 <input
                                     type={showConfirm ? "text" : "password"}
                                     required
                                     value={formData.confirm_password}
                                     onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })}
-                                    className="w-full pl-4 pr-12 py-3.5 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all group-focus-within:bg-white"
+                                    className="w-full pl-4 pr-12 py-3.5 bg-cream border-2 border-border-light rounded-2xl focus:outline-none focus:ring-2 focus:ring-sage focus:border-transparent transition-all group-focus-within:bg-white"
                                     placeholder="Repeat new password"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowConfirm(!showConfirm)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-emerald-600 transition-colors"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-stone hover:text-sage transition-colors"
                                 >
                                     {showConfirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
                             </div>
                         </div>
                         {formData.new_password && formData.confirm_password && (
-                            <p className={`text-xs flex items-center gap-1 ${formData.new_password === formData.confirm_password ? 'text-green-600' : 'text-red-500'}`}>
+                            <p className={`text-xs flex items-center gap-1 ${
+                                formData.new_password === formData.confirm_password ? 'text-sage' : 'text-rust'
+                            }`}>
                                 {formData.new_password === formData.confirm_password ? (
                                     <>
                                         <CheckCircle className="w-3 h-3" /> Passwords match
@@ -146,7 +148,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 py-4 px-4 bg-gray-100 text-gray-700 rounded-2xl font-bold hover:bg-gray-200 transition-all"
+                            className="flex-1 py-4 px-4 bg-sage-muted text-sage rounded-2xl font-bold hover:bg-sage-light hover:text-white transition-all"
                         >
                             Cancel
                         </button>

@@ -13,13 +13,19 @@ from .views import (
     TwoFactorVerifyView,
     TwoFactorDisableView,
     TwoFactorLoginView,
-    BootstrapAdminView
+    ClerkAuthView,
+    GoogleAuthView,
+    ApproveDriverView,
+    RejectDriverView,
+    PendingDriversView
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('clerk-auth/', ClerkAuthView.as_view(), name='clerk_auth'),
+    path('google-auth/', GoogleAuthView.as_view(), name='google_auth'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('me/', ProfileView.as_view(), name='profile_me'),
     path('profile/', ProfileView.as_view(), name='profile_update'),
@@ -39,6 +45,10 @@ urlpatterns = [
     # Email verification endpoints
     path('verify-email/<uuid:token>/', VerifyEmailView.as_view(), name='verify_email'),
     path('resend-verification/', ResendVerificationEmailView.as_view(), name='resend_verification'),
-    path('setup-admin-db-final/', BootstrapAdminView.as_view()),
+    
+    # Admin endpoints
+    path('admin/approve-driver/<int:user_id>/', ApproveDriverView.as_view(), name='approve_driver'),
+    path('admin/reject-driver/<int:user_id>/', RejectDriverView.as_view(), name='reject_driver'),
+    path('admin/pending-drivers/', PendingDriversView.as_view(), name='pending_drivers'),
 ]
 
