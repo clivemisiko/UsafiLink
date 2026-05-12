@@ -3,6 +3,8 @@ import qrcode
 import io
 import base64
 import threading
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from rest_framework import generics, serializers
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -190,6 +192,7 @@ class TwoFactorDisableView(APIView):
         else:
             return Response({'detail': 'Invalid token. Verification failed.'}, status=status.HTTP_400_BAD_REQUEST)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
