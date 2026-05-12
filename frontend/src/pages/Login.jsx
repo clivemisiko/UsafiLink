@@ -74,33 +74,37 @@ const Login = () => {
     } catch (error) {
       const errorData = error.response?.data;
 
-      // Helper: pull a human-readable message out of whatever DRF returns
-      const extractMessage = (data) => {
-        if (!data) return null;
-        if (typeof data.detail === 'string') return data.detail;
-        if (Array.isArray(data.detail)) return data.detail[0];
-        if (Array.isArray(data.non_field_errors)) return data.non_field_errors[0];
-        // DRF sometimes returns { username: [...], password: [...] }
-        const firstKey = Object.keys(data)[0];
-        if (firstKey) {
-          const val = data[firstKey];
-          return Array.isArray(val) ? val[0] : String(val);
-        }
-        return null;
-      };
-
-      if (errorData?.email_verified === false || errorData?.email_verified?.[0] === 'False') {
-        toast.error(
-          <div>
-            <p>{errorData.detail || 'Please verify your email before logging in.'}</p>
-            <Link to="/resend-verification" style={{ color: '#059669', fontWeight: 700, textDecoration: 'underline' }}>
-              Resend verification email
-            </Link>
-          </div>, { duration: 6000 }
-        );
+      if (!error.response && error.request) {
+        toast.error('Network error. Please try again.', { duration: 4000 });
       } else {
-        const msg = extractMessage(errorData) || 'Invalid username or password. Please try again.';
-        toast.error(msg, { duration: 4000 });
+        // Helper: pull a human-readable message out of whatever DRF returns
+        const extractMessage = (data) => {
+          if (!data) return null;
+          if (typeof data.detail === 'string') return data.detail;
+          if (Array.isArray(data.detail)) return data.detail[0];
+          if (Array.isArray(data.non_field_errors)) return data.non_field_errors[0];
+          // DRF sometimes returns { username: [...], password: [...] }
+          const firstKey = Object.keys(data)[0];
+          if (firstKey) {
+            const val = data[firstKey];
+            return Array.isArray(val) ? val[0] : String(val);
+          }
+          return null;
+        };
+
+        if (errorData?.email_verified === false || errorData?.email_verified?.[0] === 'False') {
+          toast.error(
+            <div>
+              <p>{errorData.detail || 'Please verify your email before logging in.'}</p>
+              <Link to="/resend-verification" style={{ color: '#059669', fontWeight: 700, textDecoration: 'underline' }}>
+                Resend verification email
+              </Link>
+            </div>, { duration: 6000 }
+          );
+        } else {
+          const msg = extractMessage(errorData) || 'Invalid username or password. Please try again.';
+          toast.error(msg, { duration: 4000 });
+        }
       }
     } finally {
       if (!show2FA) setLoading(false);

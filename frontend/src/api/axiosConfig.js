@@ -2,19 +2,19 @@
 import axios from 'axios';
 
 const getBaseUrl = () => {
-  let url = import.meta.env.VITE_API_URL || 'https://usafilink-backend.onrender.com';
-  
-  // Remove trailing slash if present for consistent processing
-  if (url.endsWith('/')) {
-    url = url.slice(0, -1);
+  const rawUrl = import.meta.env.VITE_API_URL?.trim() || import.meta.env.VITE_API_BASE_URL?.trim();
+
+  if (rawUrl) {
+    let url = rawUrl.replace(/\/+$/g, '');
+    if (!url.endsWith('/api')) {
+      url = `${url}/api`;
+    }
+    return `${url}/`;
   }
 
-  // Ensure /api suffix exists
-  if (!url.endsWith('/api')) {
-    url = `${url}/api`;
-  }
-
-  return `${url}/`;
+  // Use same-host API proxy by default so the deployed frontend can reach
+  // the backend through the app's own /api/ prefix.
+  return '/api/';
 };
 
 export const API_BASE_URL = getBaseUrl();

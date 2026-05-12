@@ -29,7 +29,8 @@ const GoogleIcon = () => (
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    username: '', email: '', password: '', confirmPassword: '', role: 'customer', phone_number: '', first_name: '', last_name: ''
+    username: '', email: '', password: '', confirmPassword: '', role: 'customer', phone_number: '', first_name: '', last_name: '',
+    driver_license_number: '', driver_license_expiry_date: ''
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -47,7 +48,10 @@ const Register = () => {
       await authAPI.register({
         username: formData.username, email: formData.email, password: formData.password,
         password2: formData.confirmPassword, role: formData.role,
-        phone_number: formData.phone_number, first_name: formData.first_name, last_name: formData.last_name, frontend_url: window.location.origin
+        phone_number: formData.phone_number, first_name: formData.first_name, last_name: formData.last_name,
+        driver_license_number: formData.driver_license_number,
+        driver_license_expiry_date: formData.driver_license_expiry_date,
+        frontend_url: window.location.origin
       });
       toast.success(
         <div>
@@ -200,6 +204,23 @@ const Register = () => {
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#c7f0d8', marginBottom: 6 }}>Last Name</label>
                 <input style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '2px solid rgba(255, 255, 255, 0.2)', outline: 'none', fontSize: 14, fontFamily: 'inherit', color: '#fff', background: 'rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', backdropFilter: 'blur(10px)' }} name="last_name" type="text" placeholder="Doe" value={formData.last_name} onChange={handleChange}
                   onFocus={e => { e.target.style.background = 'rgba(255, 255, 255, 0.15)'; e.target.style.borderColor = 'rgba(52, 211, 153, 0.6)'; e.target.style.boxShadow = '0 0 16px rgba(52, 211, 153, 0.2)'; }} 
+                  onBlur={e => { e.target.style.background = 'rgba(255, 255, 255, 0.1)'; e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'; e.target.style.boxShadow = 'none'; }} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#c7f0d8', marginBottom: 6 }}>Driver License Number</label>
+                <input style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '2px solid rgba(255, 255, 255, 0.2)', outline: 'none', fontSize: 14, fontFamily: 'inherit', color: '#fff', background: 'rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', backdropFilter: 'blur(10px)' }}
+                  name="driver_license_number" type="text" placeholder="DL12345678" value={formData.driver_license_number} onChange={handleChange}
+                  onFocus={e => { e.target.style.background = 'rgba(255, 255, 255, 0.15)'; e.target.style.borderColor = 'rgba(52, 211, 153, 0.6)'; e.target.style.boxShadow = '0 0 16px rgba(52, 211, 153, 0.2)'; }}
+                  onBlur={e => { e.target.style.background = 'rgba(255, 255, 255, 0.1)'; e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'; e.target.style.boxShadow = 'none'; }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#c7f0d8', marginBottom: 6 }}>License Expiry Date</label>
+                <input style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '2px solid rgba(255, 255, 255, 0.2)', outline: 'none', fontSize: 14, fontFamily: 'inherit', color: '#fff', background: 'rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', backdropFilter: 'blur(10px)' }}
+                  name="driver_license_expiry_date" type="date" value={formData.driver_license_expiry_date} onChange={handleChange}
+                  onFocus={e => { e.target.style.background = 'rgba(255, 255, 255, 0.15)'; e.target.style.borderColor = 'rgba(52, 211, 153, 0.6)'; e.target.style.boxShadow = '0 0 16px rgba(52, 211, 153, 0.2)'; }}
                   onBlur={e => { e.target.style.background = 'rgba(255, 255, 255, 0.1)'; e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'; e.target.style.boxShadow = 'none'; }} />
               </div>
             </div>
