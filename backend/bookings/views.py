@@ -1,5 +1,5 @@
 from rest_framework.decorators import action
-from rest_framework import viewsets, permissions, status
+from rest_framework import serializers, viewsets, permissions, status
 from rest_framework.response import Response
 from .models import Booking, DriverSlot
 from .serializers import BookingSerializer, DriverSlotSerializer, DriverSlotCreateSerializer
@@ -8,6 +8,7 @@ from users.admin_panel.services import log_system_action
 import logging
 from django.utils import timezone
 from django.db import transaction
+from django.db import IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +54,25 @@ class BookingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    def create(self, request, *args, **kwargs):
+        """Create a booking and return JSON even when an unexpected server error occurs."""
+        try:
+            return super().create(request, *args, **kwargs)
+        except serializers.ValidationError:
+            raise
+        except Exception as exc:
+            logger.exception("Unexpected error while creating booking for user %s", request.user.id)
+            return Response(
+                {'detail': 'Server error while creating booking. Please contact support if this continues.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def available(self, request):
         """Get available bookings for drivers (Uber-like notification system)."""
+        from .services import DriverMatchingService
+
         if request.user.role != 'driver' and not request.user.is_superuser:
             return Response({'detail': 'Only drivers can view available bookings.'}, 
                           status=status.HTTP_403_FORBIDDEN)
@@ -64,6 +80,9 @@ class BookingViewSet(viewsets.ModelViewSet):
         # Only allow online drivers to see jobs
         if not request.user.is_online:
             return Response({'detail': 'You must be online to receive jobs.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if request.user.role == 'driver' and DriverMatchingService.is_driver_busy(request.user, include_notifications=False):
+            return Response([])
         
         # Priority 1: Bookings where this driver is the SPECIFIC notified driver
         # These are urgent "Incoming Job" requests
@@ -197,16 +216,16 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         if slot_id:
             # Slot-based booking: reserve the slot and notify the specific driver
-            try:
-                slot = DriverSlot.objects.select_for_update().get(
-                    id=slot_id,
-                    status='available',
-                    date__gte=timezone.now().date()
-                )
-            except DriverSlot.DoesNotExist:
-                raise serializers.ValidationError({'slot_id': 'Slot not found, already booked, or no longer available.'})
-
             with transaction.atomic():
+                try:
+                    slot = DriverSlot.objects.select_for_update().get(
+                        id=slot_id,
+                        status='available',
+                        date__gte=timezone.now().date()
+                    )
+                except DriverSlot.DoesNotExist:
+                    raise serializers.ValidationError({'slot_id': 'Slot not found, already booked, or no longer available.'})
+
                 slot.status = 'booked'
                 slot.save(update_fields=['status'])
 
@@ -814,7 +833,12 @@ class DriverSlotViewSet(viewsets.ModelViewSet):
             raise serializers.ValidationError("Only drivers can create slots.")
         if not self.request.user.is_driver_approved:
             raise serializers.ValidationError("Your account must be approved by an admin before you can create slots.")
-        serializer.save(driver=self.request.user)
+        try:
+            serializer.save(driver=self.request.user)
+        except IntegrityError:
+            raise serializers.ValidationError(
+                "You already have a slot starting at this time. Choose a different start time."
+            )
 
     def perform_update(self, serializer):
         if self.request.user.role == 'driver' and serializer.instance.driver != self.request.user:

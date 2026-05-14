@@ -10,6 +10,7 @@ class UserSerializer(serializers.ModelSerializer):
     bookings_count = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     total_ratings = serializers.SerializerMethodField()
+    current_vehicle = serializers.SerializerMethodField()
     
     class Meta:
         model = User
@@ -17,8 +18,8 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name',
             'role', 'phone_number', 'is_active', 'is_online', 'date_joined',
             'last_login', 'bookings_count', 'driver_license_number', 
-            'driver_license_expiry_date', 'is_license_expiring_soon',
-            'average_rating', 'total_ratings'
+            'driver_license_expiry_date', 'is_license_expiring_soon', 'is_driver_approved',
+            'average_rating', 'total_ratings', 'current_vehicle'
         ]
         read_only_fields = ['date_joined', 'last_login']
     
@@ -39,6 +40,12 @@ class UserSerializer(serializers.ModelSerializer):
             return 0
         from bookings.models import Rating
         return Rating.objects.filter(driver=obj).count()
+    
+    def get_current_vehicle(self, obj):
+        if hasattr(obj, 'vehicle') and obj.vehicle:
+            from vehicles.serializers import VehicleSerializer
+            return VehicleSerializer(obj.vehicle).data
+        return None
 
 class BookingSerializer(serializers.ModelSerializer):
     customer_name = serializers.CharField(source='customer.get_full_name', read_only=True)

@@ -18,8 +18,9 @@ const AdminPayments = () => {
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, paid, pending, failed
-    const [methodFilter, setMethodFilter] = useState('all'); // all, mobile_money, bank, cash
+    const [methodFilter, setMethodFilter] = useState('all'); // all, mobile_money, bank_transfer, cash
     const [searchTerm, setSearchTerm] = useState('');
+    const [verifyingPayment, setVerifyingPayment] = useState(null);
 
     useEffect(() => {
         fetchPayments();
@@ -37,13 +38,32 @@ const AdminPayments = () => {
         }
     };
 
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        return new Date(dateString).toLocaleDateString('en-KE', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    const canManuallyVerify = (payment) => (
+        payment.status === 'pending' &&
+        ['bank_transfer', 'cash'].includes(payment.payment_method)
+    );
+
     const handleVerify = async (paymentId) => {
+        setVerifyingPayment(paymentId);
         try {
-            await paymentsAPI.verifyPayment({ payment_id: paymentId });
+            await paymentsAPI.verifyPayment({ payment_id: paymentId, status: 'paid' });
             toast.success("Payment verified");
-            fetchPayments();
+            await fetchPayments();
         } catch (error) {
-            toast.error("Verification failed");
+            toast.error(error.response?.data?.detail || "Verification failed");
+        } finally {
+            setVerifyingPayment(null);
         }
     };
 
@@ -146,6 +166,7 @@ const AdminPayments = () => {
                         {[
                             { value: 'all', label: 'All' },
                             { value: 'mobile_money', label: 'Mobile' },
+                            { value: 'bank_transfer', label: 'Bank' },
                             { value: 'cash', label: 'Cash' }
                         ].map((m) => (
                             <button
@@ -178,6 +199,7 @@ const AdminPayments = () => {
                                 <tr>
                                     <th className="px-6 py-4">Payment</th>
                                     <th className="px-6 py-4">Booking</th>
+                                    <th className="px-6 py-4">Date</th>
                                     <th className="px-6 py-4">Method</th>
                                     <th className="px-6 py-4">Amount</th>
                                     <th className="px-6 py-4">Status</th>
@@ -196,6 +218,9 @@ const AdminPayments = () => {
                                         <td className="px-6 py-4 text-xs font-semibold text-slate-500">
                                             #{p.booking_details?.id} • {p.booking_details?.location}
                                         </td>
+                                        <td className="px-6 py-4 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                            {formatDate(p.paid_at || p.verified_at || p.created_at)}
+                                        </td>
                                         <td className="px-6 py-4 capitalize">
                                             <span className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wide border ${p.payment_method === 'mobile_money' ? 'border-emerald-200 text-emerald-700 bg-emerald-50' : p.payment_method === 'cash' ? 'border-violet-200 text-violet-700 bg-violet-50' : 'border-blue-200 text-blue-700 bg-blue-50'}`}>
                                                 {p.payment_method === 'mobile_money' ? 'Mobile' : p.payment_method === 'cash' ? 'Cash' : 'Bank'}
@@ -210,16 +235,18 @@ const AdminPayments = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            {p.status === 'pending' && (p.payment_method === 'mobile_money' || p.payment_method === 'bank') && (
+                                            {canManuallyVerify(p) && (
                                                 <button
                                                     onClick={() => handleVerify(p.id)}
-                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all"
+                                                    disabled={verifyingPayment === p.id}
+                                                    className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all inline-flex items-center gap-1.5"
                                                 >
-                                                    Verify
+                                                    {verifyingPayment === p.id && <Clock className="w-3 h-3 animate-spin" />}
+                                                    {verifyingPayment === p.id ? 'Verifying' : p.payment_method === 'cash' ? 'Confirm Cash' : 'Verify'}
                                                 </button>
                                             )}
-                                            {p.status === 'pending' && p.payment_method === 'cash' && (
-                                                <span className="text-[10px] bg-violet-50 text-violet-600 font-bold px-2.5 py-1 rounded-full">Awaiting</span>
+                                            {p.status === 'pending' && p.payment_method === 'mobile_money' && (
+                                                <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-2.5 py-1 rounded-full">Provider</span>
                                             )}
                                         </td>
                                     </tr>

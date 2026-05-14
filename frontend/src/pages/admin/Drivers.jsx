@@ -117,9 +117,25 @@ const Drivers = () => {
 
   const stats = {
     total: drivers.length,
-    active: drivers.filter(d => d.is_active).length,
+    active: drivers.filter(d => d.is_active && d.is_driver_approved).length,
     online: drivers.filter(d => d.is_online).length,
     totalRevenue: Object.values(driverMetrics).reduce((sum, m) => sum + (parseFloat(m.total_revenue) || 0), 0)
+  };
+
+  const handleApproveDriver = async (driverId) => {
+    try {
+      await adminAPI.approveDriver(driverId);
+      toast.success('Driver approved');
+      fetchDrivers();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to approve driver');
+    }
+  };
+
+  const getDriverApprovalStatus = (driver) => {
+    if (!driver.is_active) return { label: 'Disabled', className: 'bg-red-100 text-red-700', icon: XCircle };
+    if (!driver.is_driver_approved) return { label: 'Pending Approval', className: 'bg-amber-100 text-amber-700', icon: AlertCircle };
+    return { label: 'Approved', className: 'bg-blue-50 text-blue-700', icon: CheckCircle };
   };
 
   const handleViewDetails = (driver) => {
@@ -187,7 +203,7 @@ const Drivers = () => {
               <CheckCircle className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Approved</p>
               <p className="text-xl font-black text-slate-900">{stats.active}</p>
             </div>
           </div>
@@ -276,6 +292,8 @@ const Drivers = () => {
               {filteredDrivers.map(driver => {
                 const metrics = driverMetrics[driver.id] || {};
                 const rating = driver.average_rating || 0;
+                const approvalStatus = getDriverApprovalStatus(driver);
+                const ApprovalIcon = approvalStatus.icon;
                 
                 return (
                   <div key={driver.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-all group">
@@ -297,9 +315,15 @@ const Drivers = () => {
                       <p className="text-sm text-gray-500">@{driver.username}</p>
                     </div>
                   </div>
-                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${driver.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {driver.is_active ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                    {driver.is_active ? 'Active' : 'Inactive'}
+                  <div className="flex flex-col items-end gap-1">
+                    <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${driver.is_online ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                      <Clock className="w-3 h-3" />
+                      {driver.is_online ? 'Online' : 'Offline'}
+                    </div>
+                    <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold ${approvalStatus.className}`}>
+                      <ApprovalIcon className="w-3 h-3" />
+                      {approvalStatus.label}
+                    </div>
                   </div>
                 </div>
 
@@ -363,6 +387,16 @@ const Drivers = () => {
                     <AlertCircle className="w-4 h-4 text-orange-600" />
                     <p className="text-xs font-bold text-orange-700">License Expiring Soon</p>
                   </div>
+                )}
+
+                {driver.is_active && !driver.is_driver_approved && (
+                  <button
+                    onClick={() => handleApproveDriver(driver.id)}
+                    className="w-full py-3 mb-3 bg-slate-900 hover:bg-emerald-600 text-white font-bold rounded-xl transition flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Approve Driver
+                  </button>
                 )}
 
                 {/* View Details Button */}
@@ -538,13 +572,46 @@ const Drivers = () => {
                 <div>
                   <h4 className="font-bold text-gray-700 uppercase text-sm tracking-widest mb-3">Current Vehicle</h4>
                   <div className="bg-gray-50 p-4 rounded-xl">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 mb-3">
                       <div className="bg-emerald-100 p-3 rounded-xl">
                         <Car className="w-6 h-6 text-emerald-600" />
                       </div>
                       <div>
                         <p className="font-bold text-gray-900">{selectedDriver.current_vehicle.plate_number}</p>
-                        <p className="text-sm text-gray-500">{selectedDriver.current_vehicle.make} {selectedDriver.current_vehicle.model}</p>
+                        <p className="text-sm text-gray-500">{selectedDriver.current_vehicle.make} {selectedDriver.current_vehicle.model} ({selectedDriver.current_vehicle.year})</p>
+                        <p className="text-sm text-gray-500">Capacity: {selectedDriver.current_vehicle.capacity} L</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-500 font-bold uppercase text-xs">Insurance Expiry</p>
+                        <p className="font-bold text-gray-900">
+                          {selectedDriver.current_vehicle.insurance_expiry_date 
+                            ? new Date(selectedDriver.current_vehicle.insurance_expiry_date).toLocaleDateString() 
+                            : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 font-bold uppercase text-xs">NTSA Inspection Expiry</p>
+                        <p className="font-bold text-gray-900">
+                          {selectedDriver.current_vehicle.registration_expiry_date 
+                            ? new Date(selectedDriver.current_vehicle.registration_expiry_date).toLocaleDateString() 
+                            : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 font-bold uppercase text-xs">Service Status</p>
+                        <p className={`font-bold ${selectedDriver.current_vehicle.service_status === 'operational' ? 'text-green-700' : 'text-red-700'}`}>
+                          {selectedDriver.current_vehicle.service_status}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 font-bold uppercase text-xs">Last Service</p>
+                        <p className="font-bold text-gray-900">
+                          {selectedDriver.current_vehicle.last_service_date 
+                            ? new Date(selectedDriver.current_vehicle.last_service_date).toLocaleDateString() 
+                            : 'N/A'}
+                        </p>
                       </div>
                     </div>
                   </div>

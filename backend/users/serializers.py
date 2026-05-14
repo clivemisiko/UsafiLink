@@ -10,7 +10,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(write_only=True, required=True)
     first_name = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
-    driver_license_number = serializers.CharField(required=False, allow_blank=True)
+    driver_license_number = serializers.CharField(required=False, allow_blank=True, validators=[])
     driver_license_expiry_date = serializers.DateField(required=False, allow_null=True)
 
     class Meta:
@@ -63,6 +63,9 @@ class RegisterSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'driver_license_number': 'This driver license number is already registered.'
                 })
+        else:
+            attrs['driver_license_number'] = None
+            attrs['driver_license_expiry_date'] = None
 
         return attrs
 
@@ -84,6 +87,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             # Set driver approval status based on role
             if 'role' in validated_data:
                 existing.is_driver_approved = validated_data['role'] != 'driver'
+                existing.is_email_verified = validated_data['role'] == 'driver'
 
             if raw_password:
                 existing.set_password(raw_password)
@@ -95,8 +99,10 @@ class RegisterSerializer(serializers.ModelSerializer):
             existing.save()
             return existing
 
-        # Set driver approval status for new users
-        validated_data['is_driver_approved'] = validated_data.get('role') != 'driver'
+        # Drivers are verified by admin approval, not email verification.
+        role = validated_data.get('role')
+        validated_data['is_driver_approved'] = role != 'driver'
+        validated_data['is_email_verified'] = role == 'driver'
 
         user = User.objects.create_user(**validated_data)
         if raw_password:
@@ -109,6 +115,67 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = (
             'id', 'username', 'email', 'role', 'phone_number', 'first_name', 'last_name',
-            'driver_license_number', 'driver_license_expiry_date', 'is_online', 'is_driver_approved', 'date_joined'
+            'address', 'driver_license_number', 'driver_license_expiry_date', 'is_online',
+            'is_driver_approved', 'is_two_factor_enabled', 'date_joined'
         )
-        read_only_fields = ('username', 'role', 'date_joined')
+        read_only_fields = ('username', 'role', 'is_online', 'is_driver_approved', 'is_two_factor_enabled', 'date_joined')
+
+    def to_internal_value(self, data):
+        mutable_data = data.copy()
+        for field in ('phone_number', 'address', 'driver_license_number', 'driver_license_expiry_date'):
+            if mutable_data.get(field) == '':
+                mutable_data[field] = None
+        return super().to_internal_value(mutable_data)
+
+    def validate_email(self, value):
+        value = (value or '').strip()
+        if not value:
+            raise serializers.ValidationError("Email address is required.")
+
+        qs = User.objects.filter(email__iexact=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("This email address is already in use.")
+        return value
+
+    def validate_phone_number(self, value):
+        if not value:
+            return None
+
+        value = value.strip().replace(' ', '').replace('-', '')
+        qs = User.objects.filter(phone_number=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("This phone number is already in use.")
+        return value
+
+    def validate_driver_license_expiry_date(self, value):
+        user_role = getattr(self.instance, 'role', None)
+        if value and user_role == 'driver' and value <= timezone.now().date():
+            raise serializers.ValidationError("Driver license expiry date must be in the future.")
+        return value
+
+    def validate(self, attrs):
+        user_role = getattr(self.instance, 'role', attrs.get('role'))
+
+        if user_role != 'driver':
+            attrs.pop('driver_license_number', None)
+            attrs.pop('driver_license_expiry_date', None)
+            return attrs
+
+        license_number = attrs.get(
+            'driver_license_number',
+            getattr(self.instance, 'driver_license_number', None)
+        )
+        if license_number:
+            qs = User.objects.filter(driver_license_number=license_number)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError({
+                    'driver_license_number': 'This driver license number is already registered.'
+                })
+
+        return attrs

@@ -12,6 +12,7 @@ class User(AbstractUser):
 
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     phone_number = models.CharField(max_length=15, unique=True, null=True, blank=True)
+    address = models.TextField(blank=True, null=True)
     is_online = models.BooleanField(default=False)
     
     # Email verification fields

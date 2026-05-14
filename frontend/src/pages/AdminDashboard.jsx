@@ -34,7 +34,7 @@ const AdminDashboard = () => {
     try {
       const [statsResult, paymentsResult, bookingsResult] = await Promise.allSettled([
         adminAPI.getDashboardStats(),
-        paymentsAPI.getPayments({ status: 'pending', payment_method: 'bank' }),
+        paymentsAPI.getPayments({ status: 'pending', payment_method: 'bank_transfer' }),
         adminAPI.getBookings()
       ]);
 

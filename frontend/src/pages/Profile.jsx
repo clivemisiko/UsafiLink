@@ -63,12 +63,29 @@ const Profile = ({ user: initialUser = null, isEmbedded = false }) => {
 
   const handleSave = async () => {
     try {
-      await authAPI.updateProfile(formData);
+      const payload = {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        email: formData.email,
+        phone_number: formData.phone_number,
+        address: formData.address,
+      };
+
+      if (user?.role === 'driver') {
+        payload.driver_license_number = formData.driver_license_number;
+        payload.driver_license_expiry_date = formData.driver_license_expiry_date || null;
+      }
+
+      await authAPI.updateProfile(payload);
       toast.success('Profile updated successfully');
       setEditing(false);
       fetchUserProfile(); // Refresh data
     } catch (error) {
-      toast.error('Failed to update profile');
+      const responseData = error.response?.data;
+      const errorMessage = responseData?.detail ||
+        Object.values(responseData || {}).flat().join(' ') ||
+        'Failed to update profile';
+      toast.error(errorMessage);
     }
   };
 

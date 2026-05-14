@@ -16,6 +16,8 @@ const BookingDetail = () => {
   const [ratingComment, setRatingComment] = useState('');
   const [driverLocation, setDriverLocation] = useState(null);
   const [trackingLoading, setTrackingLoading] = useState(false);
+  const userRole = localStorage.getItem('user_role') || 'customer';
+  const isDriverView = userRole === 'driver';
 
   useEffect(() => {
     fetchBookingDetails();
@@ -82,7 +84,7 @@ const BookingDetail = () => {
       try {
         await bookingsAPI.cancelBooking(id);
         toast.success('Booking cancelled successfully');
-        navigate('/bookings');
+        navigate(isDriverView ? '/driver' : '/bookings');
       } catch (error) {
         toast.error('Failed to cancel booking');
       }
@@ -166,7 +168,7 @@ const BookingDetail = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <Link
-                to="/bookings"
+                to={isDriverView ? '/driver' : '/bookings'}
                 className="inline-flex items-center text-gray-600 hover:text-gray-900 mr-4"
               >
                 <ArrowLeft className="mr-2 h-5 w-5" />
@@ -260,6 +262,42 @@ const BookingDetail = () => {
               </div>
             </div>
 
+            {isDriverView && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center mb-4">
+                  <User className="w-5 h-5 text-gray-400 mr-2" />
+                  <h2 className="text-xl font-semibold text-gray-800">Customer Details</h2>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-semibold text-gray-900 text-lg">{booking.customer_name || 'Customer'}</p>
+                    {booking.customer_phone && (
+                      <p className="text-gray-500 text-sm flex items-center mt-1">
+                        <Phone className="w-4 h-4 mr-1" />
+                        {booking.customer_phone}
+                      </p>
+                    )}
+                  </div>
+                  {booking.customer_phone && (
+                    <div className="flex gap-2">
+                      <a
+                        href={`tel:${booking.customer_phone}`}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition font-medium text-sm"
+                      >
+                        Call
+                      </a>
+                      <a
+                        href={`sms:${booking.customer_phone}`}
+                        className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition font-medium text-sm"
+                      >
+                        Message
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {booking.driver && ['accepted', 'started', 'arrived'].includes(booking.status) && (
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -298,19 +336,19 @@ const BookingDetail = () => {
               <div className="flex items-center space-x-6">
                 <div className="flex items-center">
                   <Calendar className="w-4 h-4 text-gray-400 mr-2" />
-                  <span>{new Date(booking.scheduled_date).toLocaleDateString('en-KE', {
+                  <span>{booking.scheduled_date ? new Date(booking.scheduled_date).toLocaleDateString('en-KE', {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
-                  })}</span>
+                  }) : 'To be confirmed'}</span>
                 </div>
                 <div className="flex items-center">
                   <Clock className="w-4 h-4 text-gray-400 mr-2" />
-                  <span>{new Date(booking.scheduled_date).toLocaleTimeString('en-KE', {
+                  <span>{booking.scheduled_date ? new Date(booking.scheduled_date).toLocaleTimeString('en-KE', {
                     hour: '2-digit',
                     minute: '2-digit'
-                  })}</span>
+                  }) : 'To be confirmed'}</span>
                 </div>
               </div>
             </div>
@@ -366,7 +404,7 @@ const BookingDetail = () => {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Actions</h2>
               <div className="space-y-3">
-                {booking.payment_status !== 'paid' && booking.status !== 'cancelled' && (
+                {!isDriverView && booking.payment_status !== 'paid' && booking.status !== 'cancelled' && (
                   <button
                     onClick={handleMakePayment}
                     className="w-full bg-emerald-600 text-white py-2 px-4 rounded-md hover:bg-emerald-700 transition-colors"
@@ -374,7 +412,7 @@ const BookingDetail = () => {
                     Make Payment
                   </button>
                 )}
-                {booking.payment_status === 'paid' && (
+                {!isDriverView && booking.payment_status === 'paid' && (
                   <button
                     onClick={() => handleViewReceipt(booking.payment?.id || booking.payment_id)}
                     className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors font-bold"
@@ -382,7 +420,7 @@ const BookingDetail = () => {
                     View Receipt
                   </button>
                 )}
-                {booking.status === 'pending' && (
+                {!isDriverView && booking.status === 'pending' && (
                   <>
                     <button
                       onClick={handleReschedule}
@@ -398,7 +436,7 @@ const BookingDetail = () => {
                     </button>
                   </>
                 )}
-                {booking.status === 'completed' && (
+                {!isDriverView && booking.status === 'completed' && (
                   <div className="space-y-4">
                     {!booking.rating_data ? (
                       <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center shadow-sm">

@@ -19,7 +19,7 @@ class SMSService:
         africastalking.initialize(username, api_key)
         self.sms = africastalking.SMS
         self.is_configured = True
-        self.sender_id = getattr(settings, 'AFRICASTALKING_SENDER_ID', None)
+        self.sender_id = (getattr(settings, 'AFRICASTALKING_SENDER_ID', None) or '').strip() or None
     
     def send_sms(self, phone_number, message):
         """
@@ -51,27 +51,22 @@ class SMSService:
                 phone_number = '+254' + phone_number.lstrip('+')
         
         try:
-            # Africa's Talking SDK expects `sender_id` (or `from_`) depending on version.
-            # Try with sender_id first, but fall back to no sender_id if it fails with InvalidSenderId
             if self.sender_id:
                 try:
-                    response = self.sms.send(message, [phone_number], self.sender_id)
-                except (TypeError, Exception) as e:
-                    error_str = str(e).lower()
-                    # If invalid sender ID, try without it
-                    if 'invalidsenderid' in error_str or 'invalid sender' in error_str:
-                        logger.warning(f"Sender ID '{self.sender_id}' is invalid, sending without it: {str(e)}")
-                        response = self.sms.send(message, [phone_number])
-                    else:
-                        # Try alternative parameter formats
-                        try:
-                            response = self.sms.send(message, [phone_number], sender_id=self.sender_id)
-                        except TypeError:
-                            try:
-                                response = self.sms.send(message, [phone_number], from_=self.sender_id)
-                            except TypeError:
-                                # Last resort: no sender_id
-                                response = self.sms.send(message, [phone_number])
+                    response = self.sms.send(message, [phone_number], sender_id=self.sender_id)
+                except Exception as e:
+                    logger.error(
+                        "Africa's Talking rejected sender ID '%s' for %s: %s",
+                        self.sender_id,
+                        phone_number,
+                        str(e),
+                    )
+                    return {
+                        "success": False,
+                        "message": "Africa's Talking rejected the configured sender ID",
+                        "error": str(e),
+                        "sender_id": self.sender_id,
+                    }
             else:
                 response = self.sms.send(message, [phone_number])
             
@@ -101,19 +96,23 @@ class SMSService:
                     "message_id": recipient_data.get('messageId', '')
                 }
             elif status == 'UserInBlacklist':
-                # Phone number is blacklisted by Africa's Talking (sandbox restriction)
-                # Log warning but don't fail the task
-                logger.warning(f"Phone number {phone_number} is blacklisted by Africa's Talking. Please whitelist this number in your Africa's Talking dashboard.")
+                logger.warning(
+                    "Phone number %s is blocked from receiving this SMS. "
+                    "For Kenya, the recipient may need to enable marketing messages via *456*9#.",
+                    phone_number,
+                )
                 return {
                     "success": False,
-                    "message": "SMS not sent - phone number is blacklisted",
+                    "message": "SMS not sent - recipient has blocked or opted out of these messages",
                     "error": "UserInBlacklist"
                 }
             else:
                 return {
                     "success": False,
                     "message": "Failed to send SMS",
-                    "error": status or 'Unknown error'
+                    "error": status or 'Unknown error',
+                    "status_code": recipient_data.get('statusCode'),
+                    "provider_response": recipient_data,
                 }
                 
         except Exception as e:

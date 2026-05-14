@@ -26,7 +26,7 @@ def send_booking_confirmation_task(booking_id):
         booking = Booking.objects.get(id=booking_id)
         service_label = booking.get_service_type_display()
         tank_label = f"{booking.tank_size}L"
-        schedule_label = booking.scheduled_date.strftime('%Y-%m-%d %H:%M')
+        schedule_label = booking.scheduled_date.strftime('%Y-%m-%d %H:%M') if booking.scheduled_date else "To be confirmed"
         est_price_label = f"KES {booking.estimated_price}"
         location_label = booking.location_name or "N/A"
         address_label = booking.address or "N/A"
@@ -80,7 +80,7 @@ def send_driver_booking_notification_task(booking_id):
             return {"success": False, "error": "Driver has no phone number"}
         
         service_label = booking.get_service_type_display()
-        schedule_label = booking.scheduled_date.strftime('%d/%m/%Y %H:%M')
+        schedule_label = booking.scheduled_date.strftime('%d/%m/%Y %H:%M') if booking.scheduled_date else "To be confirmed"
         est_price_label = f"{booking.estimated_price}"
         location_label = booking.location_name or booking.address or "N/A"
 
@@ -108,7 +108,7 @@ def send_driver_accepted_task(booking_id):
         driver_name = booking.driver.get_full_name() or booking.driver.username
         driver_phone = booking.driver.phone_number
         service_type = booking.get_service_type_display()
-        scheduled_time = booking.scheduled_date.strftime('%H:%M')
+        scheduled_time = booking.scheduled_date.strftime('%H:%M') if booking.scheduled_date else "to be confirmed"
         
         if not customer_phone:
             logger.warning(f"Booking {booking_id} has no customer phone number; cannot send acceptance SMS")

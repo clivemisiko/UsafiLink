@@ -1,8 +1,9 @@
 # backend/users/admin/views.py
+from django.db import transaction
 from django.db.models import Count, Sum, Q
 from django.utils import timezone
 from datetime import timedelta
-from rest_framework import viewsets, permissions, status
+from rest_framework import serializers, viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -29,7 +30,13 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and getattr(request.user, 'role', None) == 'admin'
+        return (
+            request.user.is_authenticated and (
+                getattr(request.user, 'role', None) == 'admin'
+                or request.user.is_staff
+                or request.user.is_superuser
+            )
+        )
 class AdminDashboardView(APIView):
     authentication_classes = [JWTAuthentication]  # Add this
     permission_classes = [IsAuthenticated, IsAdmin]  # Make sure both are there
@@ -60,8 +67,8 @@ class AdminDashboardView(APIView):
         revenue_week = Payment.objects.filter(status='paid', created_at__date__gte=week_ago).aggregate(total=Sum('amount'))['total'] or 0
         
         # Driver stats
-        active_drivers = User.objects.filter(role='driver', is_active=True).count()
-        online_drivers = User.objects.filter(role='driver', is_online=True).count()
+        active_drivers = User.objects.filter(role='driver', is_active=True, is_driver_approved=True).count()
+        online_drivers = User.objects.filter(role='driver', is_online=True, is_driver_approved=True).count()
         
         # Dispute stats
         pending_disputes = Dispute.objects.filter(status='pending').count()
@@ -110,13 +117,17 @@ class AdminUserViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         queryset = super().get_queryset()
+
+        include_inactive = self.request.query_params.get('include_inactive') in ('1', 'true', 'True')
+        status_filter = self.request.query_params.get('status')
+        if not include_inactive and not status_filter:
+            queryset = queryset.filter(is_active=True)
         
         # Filters
         role = self.request.query_params.get('role')
         if role:
             queryset = queryset.filter(role=role)
             
-        status_filter = self.request.query_params.get('status')
         if status_filter == 'active':
             queryset = queryset.filter(is_active=True)
         elif status_filter == 'inactive':
@@ -161,17 +172,61 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         )
 
     def perform_destroy(self, instance):
-        log_system_action(
-            action='user_deleted',
-            user=self.request.user,
-            details={
-                'deleted_user_id': instance.id,
-                'deleted_user_email': instance.email,
-                'deleted_user_role': instance.role,
-            },
-            ip_address=self.request.META.get('HTTP_X_FORWARDED_FOR', self.request.META.get('REMOTE_ADDR')),
+        if instance.id == self.request.user.id:
+            raise serializers.ValidationError({'detail': 'You cannot delete your own account.'})
+
+        if instance.is_superuser:
+            raise serializers.ValidationError({'detail': 'Superuser accounts cannot be deleted from this panel.'})
+
+        ip_address = self.request.META.get('HTTP_X_FORWARDED_FOR', self.request.META.get('REMOTE_ADDR'))
+        deleted_email = instance.email
+        deleted_role = instance.role
+
+        with transaction.atomic():
+            log_system_action(
+                action='user_deleted',
+                user=self.request.user,
+                details={
+                    'deleted_user_id': instance.id,
+                    'deleted_user_email': deleted_email,
+                    'deleted_user_role': deleted_role,
+                    'method': 'deactivated_and_anonymized',
+                },
+                ip_address=ip_address,
+            )
+
+            instance.is_active = False
+            instance.is_online = False
+            instance.is_driver_approved = False
+            instance.username = f"deleted_user_{instance.id}"
+            instance.email = f"deleted_user_{instance.id}@deleted.local"
+            instance.first_name = ''
+            instance.last_name = ''
+            instance.phone_number = None
+            instance.driver_license_number = None
+            instance.two_factor_secret = None
+            instance.is_two_factor_enabled = False
+            instance.save(update_fields=[
+                'is_active',
+                'is_online',
+                'is_driver_approved',
+                'username',
+                'email',
+                'first_name',
+                'last_name',
+                'phone_number',
+                'driver_license_number',
+                'two_factor_secret',
+                'is_two_factor_enabled',
+            ])
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {'detail': 'User removed successfully. The account was deactivated and anonymized.'},
+            status=status.HTTP_200_OK,
         )
-        instance.delete()
     
     @action(detail=True, methods=['post'])
     def activate(self, request, pk=None):

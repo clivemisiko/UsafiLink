@@ -35,7 +35,7 @@ import useIdleTimer from './hooks/useIdleTimer';
 
 const PrivateRoute = ({ children, allowedRoles = [] }) => {
   const token = localStorage.getItem('access_token');
-  const userRole = localStorage.getItem('user_role');
+  const userRole = localStorage.getItem('user_role') || 'customer';
   const location = useLocation();
 
   if (!token) {
@@ -54,19 +54,9 @@ const PrivateRoute = ({ children, allowedRoles = [] }) => {
     }
   }
 
-  // Treat 'user' as valid if allowedRoles includes 'customer'
-  // Or simply allow access if not explicitly forbidden
-  // But let's stick to the logic: if we are redirecting to dashboard, check if we are already there.
-
   if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
-    // Redirect to their own dashboard if they try to access a page they don't have permission for
     if (userRole === 'admin') return <Navigate to="/admin" replace />;
     if (userRole === 'driver') return <Navigate to="/driver" replace />;
-
-    // Safety check for redirect loop
-    if (location.pathname.startsWith('/dashboard')) {
-      return children;
-    }
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -77,7 +67,7 @@ const PrivateRoute = ({ children, allowedRoles = [] }) => {
 
 const Home = () => {
   const token = localStorage.getItem('access_token');
-  const userRole = localStorage.getItem('user_role');
+  const userRole = localStorage.getItem('user_role') || 'customer';
 
   if (!token) {
     return <Landing />;
@@ -131,6 +121,7 @@ const AppContent = () => {
         <Route element={<PrivateRoute allowedRoles={["driver"]}><UserLayout /></PrivateRoute>}>
           <Route path="/driver" element={<DriverDashboard />} />
           <Route path="/driver/jobs" element={<DriverJobs />} />
+          <Route path="/driver/bookings/:id" element={<BookingDetail />} />
           <Route path="/driver/schedule" element={<DriverSchedule />} />
           <Route path="/driver/earnings" element={<DriverEarnings />} />
           <Route path="/driver/ratings" element={<DriverRatings />} />

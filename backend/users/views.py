@@ -27,6 +27,30 @@ from google.auth.exceptions import TransportError
 
 User = get_user_model()
 
+
+def get_effective_role(user):
+    if user.is_superuser or user.is_staff or user.role == 'admin':
+        return 'admin'
+    if user.role == 'driver':
+        return 'driver'
+    return 'customer'
+
+
+def serialize_auth_user(user):
+    return {
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'role': get_effective_role(user),
+        'phone_number': user.phone_number,
+        'is_email_verified': user.is_email_verified,
+        'is_two_factor_enabled': user.is_two_factor_enabled,
+        'is_driver_approved': user.is_driver_approved,
+        'is_staff': user.is_staff,
+        'is_superuser': user.is_superuser,
+    }
+
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         # We need to check if 2FA is required BEFORE issuing tokens
@@ -37,8 +61,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         user = User.objects.filter(Q(username=username) | Q(email=username)).first()
         
         if user and user.check_password(password):
-            # Check if email is verified
-            if not user.is_email_verified:
+            # Admins are created/managed internally, so they don't need email verification.
+            effective_role = get_effective_role(user)
+            is_admin_user = effective_role == 'admin'
+            if not is_admin_user and effective_role == 'customer' and not user.is_email_verified:
                 raise serializers.ValidationError({
                     'detail': 'Email not verified. Please check your email for the verification link.',
                     'email_verified': False,
@@ -53,6 +79,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     'user_id': user.id,
                     'username': user.username
                 }
+
+            if effective_role == 'driver' and not user.is_driver_approved:
+                raise serializers.ValidationError({
+                    'detail': 'Your driver account is pending admin approval. You will be able to access the driver dashboard after approval.',
+                    'driver_approved': False
+                })
             
             # Normalize the username in attrs for super().validate()
             attrs[self.username_field] = user.username
@@ -65,16 +97,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise e
         
         # Add user info to response
-        data['user'] = {
-            'id': self.user.id,
-            'username': self.user.username,
-            'email': self.user.email,
-            'role': self.user.role,
-            'phone_number': self.user.phone_number,
-            'is_email_verified': self.user.is_email_verified,
-            'is_two_factor_enabled': self.user.is_two_factor_enabled,
-            'is_driver_approved': self.user.is_driver_approved
-        }
+        data['user'] = serialize_auth_user(self.user)
         
         return data
 
@@ -95,8 +118,15 @@ class TwoFactorLoginView(APIView):
         try:
             user = User.objects.get(username=username)
             if user.check_password(password):
+                effective_role = get_effective_role(user)
                 if not user.is_two_factor_enabled:
                     return Response({'detail': 'Two-Factor Authentication is not enabled for this account.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                if effective_role == 'driver' and not user.is_driver_approved:
+                    return Response({
+                        'detail': 'Your driver account is pending admin approval. You will be able to access the driver dashboard after approval.',
+                        'driver_approved': False
+                    }, status=status.HTTP_403_FORBIDDEN)
                 
                 totp = pyotp.TOTP(user.two_factor_secret)
                 if totp.verify(token):
@@ -107,14 +137,7 @@ class TwoFactorLoginView(APIView):
                     return Response({
                         'refresh': str(refresh),
                         'access': str(refresh.access_token),
-                        'user': {
-                            'id': user.id,
-                            'username': user.username,
-                            'email': user.email,
-                            'role': user.role,
-                            'is_two_factor_enabled': True,
-                            'is_driver_approved': user.is_driver_approved
-                        }
+                        'user': serialize_auth_user(user)
                     })
                 else:
                     return Response({'detail': 'Invalid 2FA token.'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -192,7 +215,6 @@ class TwoFactorDisableView(APIView):
         else:
             return Response({'detail': 'Invalid token. Verification failed.'}, status=status.HTTP_400_BAD_REQUEST)
 
-@method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
@@ -203,23 +225,39 @@ class RegisterView(generics.CreateAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         # Create user
-        user = serializer.save()
+        try:
+            user = serializer.save()
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {
+                    'detail': 'Registration failed due to a server error.',
+                    'error': str(exc),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         
-        # Send verification email in background to avoid blocking the response
         frontend_url = (
             request.data.get('frontend_url')
             or request.headers.get('Origin')
             or getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
         )
-        threading.Thread(
-            target=send_verification_email,
-            args=(user, frontend_url),
-            daemon=True
-        ).start()
+
+        if user.role == 'customer':
+            # Customers verify email ownership; drivers are verified through admin approval.
+            threading.Thread(
+                target=send_verification_email,
+                args=(user, frontend_url),
+                daemon=True
+            ).start()
         
         headers = self.get_success_headers(serializer.data)
         response_data = serializer.data
-        response_data['message'] = 'Registration successful! Please check your email to verify your account.'
+        if user.role == 'driver':
+            response_data['message'] = 'Driver registration successful! Your account is pending admin approval.'
+        else:
+            response_data['message'] = 'Registration successful! Please check your email to verify your account.'
         
         return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -262,7 +300,7 @@ class VerifyEmailView(APIView):
                 'user': {
                     'email': user.email,
                     'username': user.username,
-                    'role': user.role
+                    'role': get_effective_role(user)
                 }
             }, status=status.HTTP_200_OK)
             
@@ -286,6 +324,11 @@ class ResendVerificationEmailView(APIView):
         
         try:
             user = User.objects.get(email=email)
+
+            if user.role == 'driver':
+                return Response({
+                    'detail': 'Driver accounts are verified by admin approval. No email verification is required.'
+                }, status=status.HTTP_200_OK)
             
             if user.is_email_verified:
                 return Response({
@@ -593,7 +636,7 @@ class ClerkAuthView(APIView):
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
-                'role': user.role,
+                'role': get_effective_role(user),
                 'is_email_verified': user.is_email_verified,
                 'is_driver_approved': user.is_driver_approved,
             }
@@ -690,7 +733,7 @@ class GoogleAuthView(APIView):
                     'email': user.email,
                     'first_name': user.first_name,
                     'last_name': user.last_name,
-                    'role': user.role,
+                    'role': get_effective_role(user),
                     'is_email_verified': user.is_email_verified,
                     'is_driver_approved': user.is_driver_approved,
                 }

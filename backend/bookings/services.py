@@ -24,6 +24,35 @@ class DriverMatchingService:
     MAX_SEARCH_RADIUS_KM = 50  # Maximum distance to search for drivers
     DRIVER_RESPONSE_TIMEOUT_SECONDS = 30  # How long to wait for driver response
     MAX_DRIVERS_TO_NOTIFY = 10  # Maximum number of drivers to try
+    ACTIVE_JOB_STATUSES = ['accepted', 'started', 'arrived']
+    ACTIVE_NOTIFICATION_STATUSES = ['pending', 'searching_driver']
+
+    @classmethod
+    def is_driver_busy(cls, driver, exclude_booking_id=None, include_notifications=True):
+        """Return True when a driver already has an active job or pending notification."""
+        active_jobs = Booking.objects.filter(
+            driver=driver,
+            status__in=cls.ACTIVE_JOB_STATUSES
+        )
+
+        if exclude_booking_id:
+            active_jobs = active_jobs.exclude(id=exclude_booking_id)
+
+        if active_jobs.exists():
+            return True
+
+        if not include_notifications:
+            return False
+
+        active_notifications = Booking.objects.filter(
+            current_notified_driver=driver,
+            status__in=cls.ACTIVE_NOTIFICATION_STATUSES
+        )
+
+        if exclude_booking_id:
+            active_notifications = active_notifications.exclude(id=exclude_booking_id)
+
+        return active_notifications.exists()
     
     @classmethod
     def find_nearest_drivers(cls, booking, limit=None):
@@ -43,15 +72,27 @@ class DriverMatchingService:
         if limit is None:
             limit = cls.MAX_DRIVERS_TO_NOTIFY
         
-        # Get all online, approved drivers (no location tracking yet)
+        busy_driver_ids = Booking.objects.filter(
+            Q(driver__isnull=False, status__in=cls.ACTIVE_JOB_STATUSES) |
+            Q(current_notified_driver__isnull=False, status__in=cls.ACTIVE_NOTIFICATION_STATUSES)
+        ).exclude(id=booking.id).values_list('driver_id', 'current_notified_driver_id')
+
+        excluded_driver_ids = set()
+        for driver_id, notified_driver_id in busy_driver_ids:
+            if driver_id:
+                excluded_driver_ids.add(driver_id)
+            if notified_driver_id:
+                excluded_driver_ids.add(notified_driver_id)
+
+        # Get all online, approved, non-busy drivers (no location tracking yet)
         online_drivers = User.objects.filter(
             role='driver',
             is_online=True,
             is_active=True,
             is_driver_approved=True
-        ).order_by('id')
+        ).exclude(id__in=excluded_driver_ids).order_by('id')
         
-        logger.info(f"Found {online_drivers.count()} online approved drivers")
+        logger.info(f"Found {online_drivers.count()} online approved non-busy drivers")
         
         # For now, return drivers without actual distance calculation
         # TODO: Implement real distance calculation with GPS coordinates
@@ -120,18 +161,29 @@ class DriverMatchingService:
         Returns:
             DriverOrderRequest or None: The request that was notified
         """
-        # Find the next pending request
-        next_request = DriverOrderRequest.objects.filter(
-            booking=booking,
-            status='pending'
-        ).order_by('queue_position').first()
-        
-        if not next_request:
-            logger.warning(f"No more drivers to notify for booking {booking.id}")
-            booking.status = 'no_driver_available'
-            booking.current_notified_driver = None
-            booking.save(update_fields=['status', 'current_notified_driver'])
-            return None
+        while True:
+            next_request = DriverOrderRequest.objects.filter(
+                booking=booking,
+                status='pending'
+            ).select_related('driver').order_by('queue_position').first()
+
+            if not next_request:
+                logger.warning(f"No more drivers to notify for booking {booking.id}")
+                booking.status = 'no_driver_available'
+                booking.current_notified_driver = None
+                booking.save(update_fields=['status', 'current_notified_driver'])
+                return None
+
+            if not cls.is_driver_busy(next_request.driver, exclude_booking_id=booking.id):
+                break
+
+            next_request.status = 'cancelled'
+            next_request.responded_at = timezone.now()
+            next_request.save(update_fields=['status', 'responded_at'])
+            logger.info(
+                f"Skipped driver {next_request.driver.username} for booking {booking.id} "
+                "because they already have an active job or notification"
+            )
         
         # Update booking with current notified driver
         booking.current_notified_driver = next_request.driver

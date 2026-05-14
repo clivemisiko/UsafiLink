@@ -39,25 +39,57 @@ const Register = () => {
 
   const handleChange = e => setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  const handleRoleChange = e => {
+    const role = e.target.value;
+    setFormData({
+      ...formData,
+      role,
+      driver_license_number: role === 'driver' ? formData.driver_license_number : '',
+      driver_license_expiry_date: role === 'driver' ? formData.driver_license_expiry_date : ''
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) { toast.error('Passwords do not match'); return; }
     if (formData.password.length < 8)                   { toast.error('Password must be at least 8 characters'); return; }
+    if (formData.role === 'driver') {
+      if (!formData.driver_license_number.trim()) {
+        toast.error('Driver license number is required for driver accounts.');
+        return;
+      }
+      if (!formData.driver_license_expiry_date) {
+        toast.error('Driver license expiry date is required for driver accounts.');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
-      await authAPI.register({
+      const payload = {
         username: formData.username, email: formData.email, password: formData.password,
         password2: formData.confirmPassword, role: formData.role,
         phone_number: formData.phone_number, first_name: formData.first_name, last_name: formData.last_name,
-        driver_license_number: formData.driver_license_number,
-        driver_license_expiry_date: formData.driver_license_expiry_date,
         frontend_url: window.location.origin
-      });
+      };
+
+      if (formData.role === 'driver') {
+        payload.driver_license_number = formData.driver_license_number.trim();
+        payload.driver_license_expiry_date = formData.driver_license_expiry_date;
+      }
+
+      await authAPI.register(payload);
       toast.success(
         <div>
           <p style={{ fontWeight: 700 }}>Registration successful! 🎉</p>
-          <p style={{ fontSize: 13 }}>Please check your email to verify your account.</p>
-          <p style={{ fontSize: 11, marginTop: 4, color: '#059669', fontStyle: 'italic' }}>Didn't get it? Check your spam folder.</p>
+          <p style={{ fontSize: 13 }}>
+            {formData.role === 'driver'
+              ? 'Your driver account is pending admin approval. You can access the driver dashboard after approval.'
+              : 'Please check your email to verify your account.'}
+          </p>
+          {formData.role !== 'driver' && (
+            <p style={{ fontSize: 11, marginTop: 4, color: '#059669', fontStyle: 'italic' }}>Didn't get it? Check your spam folder.</p>
+          )}
         </div>,
         { duration: 8000 }
       );
@@ -208,31 +240,33 @@ const Register = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#c7f0d8', marginBottom: 6 }}>Driver License Number</label>
-                <input style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '2px solid rgba(255, 255, 255, 0.2)', outline: 'none', fontSize: 14, fontFamily: 'inherit', color: '#fff', background: 'rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', backdropFilter: 'blur(10px)' }}
-                  name="driver_license_number" type="text" placeholder="DL12345678" value={formData.driver_license_number} onChange={handleChange}
-                  onFocus={e => { e.target.style.background = 'rgba(255, 255, 255, 0.15)'; e.target.style.borderColor = 'rgba(52, 211, 153, 0.6)'; e.target.style.boxShadow = '0 0 16px rgba(52, 211, 153, 0.2)'; }}
-                  onBlur={e => { e.target.style.background = 'rgba(255, 255, 255, 0.1)'; e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'; e.target.style.boxShadow = 'none'; }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#c7f0d8', marginBottom: 6 }}>License Expiry Date</label>
-                <input style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '2px solid rgba(255, 255, 255, 0.2)', outline: 'none', fontSize: 14, fontFamily: 'inherit', color: '#fff', background: 'rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', backdropFilter: 'blur(10px)' }}
-                  name="driver_license_expiry_date" type="date" value={formData.driver_license_expiry_date} onChange={handleChange}
-                  onFocus={e => { e.target.style.background = 'rgba(255, 255, 255, 0.15)'; e.target.style.borderColor = 'rgba(52, 211, 153, 0.6)'; e.target.style.boxShadow = '0 0 16px rgba(52, 211, 153, 0.2)'; }}
-                  onBlur={e => { e.target.style.background = 'rgba(255, 255, 255, 0.1)'; e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'; e.target.style.boxShadow = 'none'; }} />
-              </div>
-            </div>
-
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#c7f0d8', marginBottom: 6 }}>Account Type</label>
-              <select name="role" value={formData.role} onChange={handleChange}
+              <select name="role" value={formData.role} onChange={handleRoleChange}
                 style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '2px solid rgba(255, 255, 255, 0.2)', outline: 'none', fontSize: 14, fontFamily: 'inherit', color: '#fff', background: 'rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', cursor: 'pointer', backdropFilter: 'blur(10px)', transition: 'all 0.2s' }}>
                 <option value="customer" style={{ background: '#1a1a2e', color: '#fff' }}>👤 Customer (Book Services)</option>
                 <option value="driver" style={{ background: '#1a1a2e', color: '#fff' }}>🚛 Driver (Accept Jobs)</option>
               </select>
             </div>
+
+            {formData.role === 'driver' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#c7f0d8', marginBottom: 6 }}>Driver License Number</label>
+                  <input style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '2px solid rgba(255, 255, 255, 0.2)', outline: 'none', fontSize: 14, fontFamily: 'inherit', color: '#fff', background: 'rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', backdropFilter: 'blur(10px)' }}
+                    name="driver_license_number" type="text" placeholder="DL12345678" value={formData.driver_license_number} onChange={handleChange} required
+                    onFocus={e => { e.target.style.background = 'rgba(255, 255, 255, 0.15)'; e.target.style.borderColor = 'rgba(52, 211, 153, 0.6)'; e.target.style.boxShadow = '0 0 16px rgba(52, 211, 153, 0.2)'; }}
+                    onBlur={e => { e.target.style.background = 'rgba(255, 255, 255, 0.1)'; e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'; e.target.style.boxShadow = 'none'; }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#c7f0d8', marginBottom: 6 }}>License Expiry Date</label>
+                  <input style={{ width: '100%', padding: '11px 14px', borderRadius: 12, border: '2px solid rgba(255, 255, 255, 0.2)', outline: 'none', fontSize: 14, fontFamily: 'inherit', color: '#fff', background: 'rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', backdropFilter: 'blur(10px)' }}
+                    name="driver_license_expiry_date" type="date" value={formData.driver_license_expiry_date} onChange={handleChange} required
+                    onFocus={e => { e.target.style.background = 'rgba(255, 255, 255, 0.15)'; e.target.style.borderColor = 'rgba(52, 211, 153, 0.6)'; e.target.style.boxShadow = '0 0 16px rgba(52, 211, 153, 0.2)'; }}
+                    onBlur={e => { e.target.style.background = 'rgba(255, 255, 255, 0.1)'; e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'; e.target.style.boxShadow = 'none'; }} />
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>

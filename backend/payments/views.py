@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.db import transaction, models
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
@@ -474,6 +475,112 @@ class PaymentViewSet(viewsets.ModelViewSet):
             logger.error(f"Cash payment initiation error: {str(e)}")
             return Response(
                 {'detail': 'An error occurred while processing your cash payment request.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def manual_verify(self, request):
+        """
+        Manually verify a pending payment from the admin payments screen.
+        """
+        if request.user.role not in ['admin', 'staff']:
+            return Response(
+                {'detail': 'Only admins can verify payments.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        payment_id = request.data.get('payment_id')
+        if not payment_id:
+            return Response(
+                {'detail': 'payment_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            with transaction.atomic():
+                payment = Payment.objects.select_for_update().select_related('booking').get(id=payment_id)
+
+                if payment.status == 'paid':
+                    return Response(
+                        {
+                            'success': True,
+                            'message': 'Payment is already verified.',
+                            'payment': self.get_serializer(payment).data,
+                        },
+                        status=status.HTTP_200_OK
+                    )
+
+                if payment.status not in ['pending', 'processing']:
+                    return Response(
+                        {'detail': f'Cannot verify a {payment.status} payment.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if payment.payment_method not in ['bank_transfer', 'cash']:
+                    return Response(
+                        {'detail': 'Only bank transfer and cash payments can be manually verified.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                payment.status = 'paid'
+                payment.verified_by = request.user
+                payment.verified_at = timezone.now()
+                payment.save(update_fields=['status', 'verified_by', 'verified_at', 'paid_at', 'updated_at'])
+
+                booking = payment.booking
+                if booking and booking.status in ['pending', 'payment_pending', 'searching_driver']:
+                    booking.status = 'accepted'
+                    booking.save(update_fields=['status', 'updated_at'])
+
+                ip_address = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+                user_agent = request.META.get('HTTP_USER_AGENT', '')
+                TransactionLog.objects.create(
+                    payment=payment,
+                    action='manual_payment_verified',
+                    data={
+                        'verified_by': request.user.id,
+                        'booking_id': booking.id if booking else None,
+                        'amount': float(payment.amount),
+                        'payment_method': payment.payment_method,
+                        'reference': payment.intasend_api_ref or payment.bank_reference,
+                    },
+                    status='success',
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                )
+
+                log_system_action(
+                    action='payment_verified',
+                    user=request.user,
+                    details={
+                        'payment_id': payment.id,
+                        'booking_id': booking.id if booking else None,
+                        'amount': float(payment.amount),
+                        'payment_method': payment.payment_method,
+                    },
+                    ip_address=ip_address
+                )
+
+            try:
+                send_payment_confirmation_task.delay(payment.id)
+            except Exception as e:
+                logger.warning(f"Could not queue payment confirmation for payment {payment.id}: {str(e)}")
+
+            return Response({
+                'success': True,
+                'message': 'Payment verified successfully.',
+                'payment': self.get_serializer(payment).data,
+            }, status=status.HTTP_200_OK)
+
+        except Payment.DoesNotExist:
+            return Response(
+                {'detail': 'Payment not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Manual payment verification failed: {str(e)}")
+            return Response(
+                {'detail': 'Failed to verify payment.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     

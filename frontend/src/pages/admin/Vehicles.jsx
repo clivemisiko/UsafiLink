@@ -44,9 +44,16 @@ const Vehicles = () => {
                 adminAPI.getUsers({ role: 'driver' }),
                 vehiclesAPI.getDriverMetrics().catch(() => ({}))
             ]);
-            setVehicles(vehiclesData);
-            setDrivers(usersData.results || usersData);
-            setDriverMetrics(metricsData);
+            setVehicles(Array.isArray(vehiclesData) ? vehiclesData : vehiclesData.results || vehiclesData.data || []);
+            setDrivers(Array.isArray(usersData) ? usersData : usersData.results || usersData.data || []);
+            setDriverMetrics(
+                Array.isArray(metricsData)
+                    ? metricsData.reduce((acc, metric) => {
+                        acc[metric.driver_id] = metric;
+                        return acc;
+                    }, {})
+                    : metricsData || {}
+            );
         } catch (error) {
             toast.error("Failed to load data");
             console.error(error);
@@ -157,22 +164,20 @@ const Vehicles = () => {
         }
     };
 
-    const isInsuranceExpiringSoon = (date) => {
-        if (!date) return false;
-        const today = new Date();
-        const expiry = new Date(date);
-        const daysUntilExpiry = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-        return daysUntilExpiry <= 7 && daysUntilExpiry >= 0;
+    const formatDate = (date) => {
+        const parsed = parseLocalDate(date);
+        return parsed ? parsed.toLocaleDateString() : 'N/A';
     };
 
-    const isExpired = (date) => {
-        if (!date) return false;
-        return new Date(date) < new Date();
+    const parseLocalDate = (date) => {
+        if (!date) return null;
+        const [year, month, day] = date.split('-').map(Number);
+        return new Date(year, month - 1, day);
     };
 
     const filteredVehicles = vehicles.filter(v =>
-        v.plate_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (v.plate_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (v.make || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (v.driver_details?.username || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -221,10 +226,13 @@ const Vehicles = () => {
                         const driverLicenseExpiring = vehicle.driver_details?.is_license_expiring_soon;
                         const insuranceExpiring = vehicle.insurance_expiring_soon;
                         const registrationExpiring = vehicle.registration_expiring_soon;
+                        const insuranceExpired = vehicle.insurance_expired;
+                        const registrationExpired = vehicle.registration_expired;
+                        const vehicleUnavailable = vehicle.service_status !== 'operational';
 
                         return (
                             <div key={vehicle.id} className={`bg-white rounded-2xl p-6 shadow-sm border transition-all group hover:shadow-lg ${
-                                isExpired(vehicle.insurance_expiry_date) || isExpired(vehicle.registration_expiry_date) || vehicle.service_status !== 'operational' 
+                                insuranceExpired || registrationExpired || vehicleUnavailable
                                 ? 'border-red-200' 
                                 : insuranceExpiring || registrationExpiring || driverLicenseExpiring
                                 ? 'border-yellow-200'
@@ -252,13 +260,13 @@ const Vehicles = () => {
                                 <p className="text-gray-500 font-medium mb-4">{vehicle.make} {vehicle.model} ({vehicle.year})</p>
 
                                 {/* Status Badges */}
-                                {(isExpired(vehicle.insurance_expiry_date) || isExpired(vehicle.registration_expiry_date) || vehicle.service_status !== 'operational') && (
+                                {(insuranceExpired || registrationExpired || vehicleUnavailable) && (
                                     <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
                                         <AlertTriangle className="w-4 h-4 text-red-600" />
                                         <p className="text-xs font-bold text-red-700">
-                                            {isExpired(vehicle.insurance_expiry_date) && 'Insurance Expired'} 
-                                            {isExpired(vehicle.registration_expiry_date) && 'Registration Expired'} 
-                                            {vehicle.service_status !== 'operational' && 'Vehicle Unavailable'}
+                                            {insuranceExpired && 'Insurance Expired '}
+                                            {registrationExpired && 'NTSA Inspection Expired '}
+                                            {vehicleUnavailable && 'Vehicle Unavailable'}
                                         </p>
                                     </div>
                                 )}
@@ -291,7 +299,7 @@ const Vehicles = () => {
                                                 <p className="text-xs text-green-600 font-bold uppercase tracking-wider">Driver</p>
                                                 <p className="text-sm font-bold text-gray-900">{vehicle.driver_details.get_full_name || vehicle.driver_details.username}</p>
                                                 {driverLicenseExpiring && (
-                                                    <p className="text-xs text-orange-600 font-bold">⚠️ License Expiring Soon</p>
+                                                    <p className="text-xs text-orange-600 font-bold">License Expiring Soon</p>
                                                 )}
                                             </div>
                                         </>
@@ -311,15 +319,15 @@ const Vehicles = () => {
                                 {/* Expiry Information */}
                                 <div className="space-y-2 mb-3 text-xs">
                                     {vehicle.insurance_expiry_date && (
-                                        <div className={`flex justify-between p-2 rounded ${insuranceExpiring ? 'bg-yellow-50 text-yellow-700' : isExpired(vehicle.insurance_expiry_date) ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'}`}>
+                                        <div className={`flex justify-between p-2 rounded ${insuranceExpiring ? 'bg-yellow-50 text-yellow-700' : insuranceExpired ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'}`}>
                                             <span className="font-bold">Insurance:</span>
-                                            <span className="font-bold">{new Date(vehicle.insurance_expiry_date).toLocaleDateString()}</span>
+                                            <span className="font-bold">{formatDate(vehicle.insurance_expiry_date)}</span>
                                         </div>
                                     )}
                                     {vehicle.registration_expiry_date && (
-                                        <div className={`flex justify-between p-2 rounded ${registrationExpiring ? 'bg-yellow-50 text-yellow-700' : isExpired(vehicle.registration_expiry_date) ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'}`}>
-                                            <span className="font-bold">Registration:</span>
-                                            <span className="font-bold">{new Date(vehicle.registration_expiry_date).toLocaleDateString()}</span>
+                                        <div className={`flex justify-between p-2 rounded ${registrationExpiring ? 'bg-yellow-50 text-yellow-700' : registrationExpired ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'}`}>
+                                            <span className="font-bold">NTSA Inspection:</span>
+                                            <span className="font-bold">{formatDate(vehicle.registration_expiry_date)}</span>
                                         </div>
                                     )}
                                 </div>
@@ -439,7 +447,7 @@ const Vehicles = () => {
                                 </div>
                             </div>
 
-                            <h4 className="font-bold text-gray-700 uppercase text-sm tracking-widest mt-6">Insurance & Registration</h4>
+                            <h4 className="font-bold text-gray-700 uppercase text-sm tracking-widest mt-6">Insurance & NTSA Inspection</h4>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Insurance Expiry Date</label>
@@ -451,7 +459,7 @@ const Vehicles = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Insurance Registration Date</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">NTSA Inspection Expiry Date</label>
                                     <input
                                         type="date"
                                         className="w-full px-4 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"

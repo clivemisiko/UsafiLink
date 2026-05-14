@@ -95,7 +95,7 @@ def send_driver_order_notification_task(booking_id, driver_id):
             f"📍 {booking.location_name}\n"
             f"📏 Service: {booking.get_service_type_display()}\n"
             f"💰 KES {booking.estimated_price}\n"
-            f"⏰ {booking.scheduled_date.strftime('%d/%m/%Y %H:%M')}\n"
+            f"⏰ {booking.scheduled_date.strftime('%d/%m/%Y %H:%M') if booking.scheduled_date else 'To be confirmed'}\n"
             f"Tap to accept within 30 seconds!"
         )
         

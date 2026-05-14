@@ -23,6 +23,7 @@ const GlobalStyles = () => (
 
     .nb-page {
       min-height: 100vh;
+      overflow-x: hidden;
       background-color: var(--parchment);
       background-image:
         radial-gradient(ellipse 80% 60% at 10% 0%, rgba(74,124,89,0.07) 0%, transparent 60%),
@@ -44,7 +45,7 @@ const GlobalStyles = () => (
     .nb-header-inner {
       max-width: 1100px;
       margin: 0 auto;
-      padding: 1.1rem 1.5rem;
+      padding: 1rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -110,20 +111,31 @@ const GlobalStyles = () => (
     .nb-main {
       max-width: 1100px;
       margin: 0 auto;
-      padding: 2.5rem 1.5rem 4rem;
+      width: 100%;
+      padding: 1.25rem 1rem 3rem;
       display: grid;
-      grid-template-columns: 1fr 340px;
-      grid-template-rows: auto 1fr;
-      gap: 1.75rem;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.25rem;
       align-items: start;
     }
 
-    @media (max-width: 900px) {
+    @media (min-width: 1024px) {
       .nb-main {
-        grid-template-columns: 1fr;
-        padding: 1.75rem 1rem 3rem;
+        padding: 2.5rem 1.5rem 4rem;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        grid-template-rows: auto 1fr;
+        gap: 1.75rem;
       }
-      .nb-sidebar { grid-row: 3; }
+      .nb-form-col,
+      .nb-sidebar {
+        grid-row: 2;
+      }
+    }
+
+    @media (min-width: 640px) {
+      .nb-header-inner {
+        padding: 1.1rem 1.5rem;
+      }
     }
 
     /* ── HERO BANNER ── */
@@ -133,12 +145,12 @@ const GlobalStyles = () => (
       border-radius: 20px;
       overflow: hidden;
       background: var(--ink);
-      padding: 2.5rem;
+      padding: 1.25rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 2rem;
-      flex-wrap: wrap;
+      gap: 1rem;
+      flex-direction: column;
     }
 
     .nb-hero::before {
@@ -151,7 +163,12 @@ const GlobalStyles = () => (
       pointer-events: none;
     }
 
-    .nb-hero-text { position: relative; z-index: 1; flex: 1; min-width: 200px; }
+    .nb-hero-text {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      min-width: 0;
+    }
 
     .nb-hero-tag {
       display: inline-flex;
@@ -189,13 +206,14 @@ const GlobalStyles = () => (
     .nb-steps {
       position: relative;
       z-index: 1;
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
       gap: 0.75rem;
-      flex-wrap: wrap;
+      width: 100%;
     }
 
     .nb-step {
-      width: 140px;
+      min-width: 0;
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.1);
       border-radius: 14px;
@@ -231,14 +249,14 @@ const GlobalStyles = () => (
     }
 
     /* ── FORM WRAPPER ── */
-    .nb-form-col { grid-row: 2; }
+    .nb-form-col { min-width: 0; }
 
     /* ── SIDEBAR ── */
     .nb-sidebar {
-      grid-row: 2;
       display: flex;
       flex-direction: column;
       gap: 1.25rem;
+      min-width: 0;
     }
 
     .nb-card {
@@ -361,6 +379,36 @@ const GlobalStyles = () => (
     .nb-contact-value {
       font-weight: 600;
       color: var(--ink);
+      word-break: break-word;
+    }
+
+    @media (min-width: 560px) {
+      .nb-steps {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width: 768px) {
+      .nb-hero {
+        padding: 2rem;
+        flex-direction: row;
+        gap: 1.5rem;
+      }
+
+      .nb-hero-text {
+        flex: 1 1 260px;
+      }
+
+      .nb-steps {
+        flex: 1 1 360px;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .nb-hero {
+        padding: 2.5rem;
+        gap: 2rem;
+      }
     }
   `}</style>
 );

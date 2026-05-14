@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.utils import timezone
 from .models import Booking, Rating, DriverSlot
 from users.admin_panel.models import Dispute
 
@@ -90,8 +91,33 @@ class DriverSlotCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ['status']
 
     def validate(self, data):
-        if data['start_time'] >= data['end_time']:
+        instance = getattr(self, 'instance', None)
+        driver = self.context['request'].user
+        date = data.get('date', getattr(instance, 'date', None))
+        start_time = data.get('start_time', getattr(instance, 'start_time', None))
+        end_time = data.get('end_time', getattr(instance, 'end_time', None))
+
+        if date and date < timezone.now().date():
+            raise serializers.ValidationError("Slot date cannot be in the past.")
+
+        if start_time >= end_time:
             raise serializers.ValidationError("Start time must be before end time.")
+
+        overlapping_slots = DriverSlot.objects.filter(
+            driver=driver,
+            date=date,
+            status__in=['available', 'booked', 'in_progress'],
+            start_time__lt=end_time,
+            end_time__gt=start_time,
+        )
+        if instance:
+            overlapping_slots = overlapping_slots.exclude(pk=instance.pk)
+
+        if overlapping_slots.exists():
+            raise serializers.ValidationError(
+                "This slot overlaps another slot on the same day. Choose a different time range."
+            )
+
         return data
 
 

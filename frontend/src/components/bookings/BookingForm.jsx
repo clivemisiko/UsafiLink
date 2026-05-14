@@ -17,6 +17,24 @@ const bookingSchema = z.object({
   special_instructions: z.string().optional(),
 });
 
+const getBookingErrorMessage = (error) => {
+  const data = error.response?.data;
+
+  if (!data) return 'Failed to create booking';
+  if (typeof data === 'string') {
+    return data.trim().startsWith('<!doctype html') || data.trim().startsWith('<html')
+      ? 'Server error while creating booking. Please try again.'
+      : data;
+  }
+  if (data.detail) return data.detail;
+
+  const firstFieldError = Object.values(data)
+    .flat()
+    .find((message) => typeof message === 'string' && message.trim());
+
+  return firstFieldError || 'Failed to create booking';
+};
+
 const BookingForm = ({ onSuccess }) => {
   const location = useLocation();
   const preFilledData = location.state || {};
@@ -91,15 +109,15 @@ const BookingForm = ({ onSuccess }) => {
       toast.success('Booking created successfully!');
       onSuccess?.(response);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to create booking');
+      toast.error(getBookingErrorMessage(error));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 w-full">
-      <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 sm:space-y-6 w-full min-w-0">
+      <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-5">
           <MapPin className="w-5 h-5 text-emerald-600" />
           <h3 className="text-lg font-semibold text-slate-900">Location Details</h3>
@@ -141,7 +159,7 @@ const BookingForm = ({ onSuccess }) => {
         </div>
       </section>
 
-      <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-6">
+      <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-5">
           <Droplets className="w-5 h-5 text-sky-600" />
           <h3 className="text-lg font-semibold text-slate-900">Service Details</h3>
@@ -176,7 +194,7 @@ const BookingForm = ({ onSuccess }) => {
         </div>
       </section>
 
-      <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-6">
+      <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-5">
           <Calendar className="w-5 h-5 text-violet-600" />
           <h3 className="text-lg font-semibold text-slate-900">Select Driver & Time Slot</h3>
@@ -197,7 +215,7 @@ const BookingForm = ({ onSuccess }) => {
         )}
       </section>
 
-      <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-6">
+      <section className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-4">
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700">i</span>
           <h3 className="text-lg font-semibold text-slate-900">Additional details</h3>
@@ -213,31 +231,31 @@ const BookingForm = ({ onSuccess }) => {
       </section>
 
       {priceEstimate && (
-        <section className="rounded-2xl bg-emerald-50 border border-emerald-100 p-6">
-          <div className="flex items-center justify-between mb-4">
+        <section className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 sm:p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
             <h4 className="text-lg font-semibold text-slate-900">Price Estimate</h4>
-            <span className="rounded-full bg-emerald-600 px-3 py-1 text-sm font-semibold text-white">
+            <span className="w-fit rounded-full bg-emerald-600 px-3 py-1 text-sm font-semibold text-white">
               Estimated total
             </span>
           </div>
           <div className="space-y-3 text-sm text-slate-700">
-            <div className="flex justify-between">
+            <div className="flex items-start justify-between gap-4">
               <span>Base Price</span>
-              <span className="font-medium">KES {priceEstimate.base_price}</span>
+              <span className="font-medium text-right">KES {priceEstimate.base_price}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex items-start justify-between gap-4">
               <span>Tank Charge</span>
-              <span className="font-medium">KES {priceEstimate.tank_charge}</span>
+              <span className="font-medium text-right">KES {priceEstimate.tank_charge}</span>
             </div>
             {priceEstimate.distance_charge > 0 && (
-              <div className="flex justify-between">
+              <div className="flex items-start justify-between gap-4">
                 <span>Distance Charge</span>
-                <span className="font-medium">KES {priceEstimate.distance_charge}</span>
+                <span className="font-medium text-right">KES {priceEstimate.distance_charge}</span>
               </div>
             )}
-            <div className="border-t border-emerald-200 pt-3 flex justify-between text-lg font-bold">
+            <div className="border-t border-emerald-200 pt-3 flex items-start justify-between gap-4 text-lg font-bold">
               <span>Total Estimate</span>
-              <span className="text-emerald-900">KES {priceEstimate.total}</span>
+              <span className="text-emerald-900 text-right">KES {priceEstimate.total}</span>
             </div>
             <p className="text-sm text-slate-600">Final price may vary based on actual conditions.</p>
           </div>

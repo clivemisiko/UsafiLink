@@ -92,7 +92,7 @@ export default function Landing() {
   const selV = vehicles.find(v => v.id === selected);
 
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen overflow-x-hidden">
+    <div style={{ fontFamily: "'Inter', sans-serif" }} className="landing-page min-h-screen overflow-x-hidden">
 
       {/* ══════════════ NAV ══════════════ */}
       <header style={{
@@ -154,7 +154,7 @@ export default function Landing() {
       </header>
 
       {/* ══════════════ HERO ══════════════ */}
-      <section id="hero" style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+      <section id="hero" className="hero-section" style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
         {/* Hero Image Background */}
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
           <img
@@ -172,8 +172,8 @@ export default function Landing() {
         </div>
 
         {/* Content */}
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '100px 24px 60px', width: '100%', position: 'relative', zIndex: 10 }}>
-          <div style={{ maxWidth: 600 }}>
+        <div className="hero-content" style={{ maxWidth: 1200, margin: '0 auto', padding: '100px 24px 60px', width: '100%', position: 'relative', zIndex: 10 }}>
+          <div className="hero-copy" style={{ maxWidth: 600 }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 100, padding: '10px 20px', marginBottom: 28 }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#fbbf24', display: 'inline-block', animation: 'ping 1s infinite' }} />
               <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>Available</span>
@@ -192,7 +192,7 @@ export default function Landing() {
             </p>
 
             {/* Booking bar */}
-            <div style={{ background: '#fff', borderRadius: 20, padding: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.4)', maxWidth: 500 }}>
+            <div className="booking-card" style={{ background: '#fff', borderRadius: 20, padding: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.4)', maxWidth: 500 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderBottom: '1px solid #f3f4f6', marginBottom: 12 }}>
                 <MapPin style={{ color: '#059669', width: 18, height: 18, flexShrink: 0 }} />
                 <select
@@ -214,7 +214,7 @@ export default function Landing() {
             </div>
 
             {/* Trust badges */}
-            <div style={{ display: 'flex', gap: 32, marginTop: 40 }}>
+            <div className="trust-badges" style={{ display: 'flex', gap: 32, marginTop: 40 }}>
               {[['Fast', '15min avg'], ['Trusted', 'Verified'], ['Professional', '24/7 Available']].map(([v, l]) => (
                 <div key={l}>
                   <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>{v}</div>
@@ -225,7 +225,7 @@ export default function Landing() {
           </div>
         </div>
 
-        <button onClick={() => scrollTo('stats')} style={{ position: 'absolute', bottom: 28, left: '50%', transform: 'translateX(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animation: 'bounce 1.5s infinite', zIndex: 10 }}>
+        <button className="scroll-cue" onClick={() => scrollTo('stats')} style={{ position: 'absolute', bottom: 28, left: '50%', transform: 'translateX(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, animation: 'bounce 1.5s infinite', zIndex: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase' }}>Scroll</span>
           <ChevronDown style={{ width: 18, height: 18 }} />
         </button>
@@ -426,7 +426,7 @@ export default function Landing() {
       <section style={{ background: 'linear-gradient(135deg,#f59e0b 0%,#f97316 100%)', padding: '72px 24px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, opacity: 0.08, backgroundImage: 'radial-gradient(circle,#fff 1px,transparent 1px)', backgroundSize: '32px 32px' }} />
         <div style={{ position: 'absolute', top: -60, right: -60, width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', filter: 'blur(40px)' }} />
-        <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+        <div className="cta-content" style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center', position: 'relative' }}>
           <div style={{ fontSize: 52, marginBottom: 16 }}>🚛</div>
           <h2 style={{ fontSize: 46, fontWeight: 900, color: '#fff', marginBottom: 16, letterSpacing: '-1px' }}>Ready for a Clean Home?</h2>
             <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.85)', marginBottom: 36, maxWidth: 480, margin: '0 auto 36px' }}>
@@ -482,7 +482,7 @@ export default function Landing() {
               ))}
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 24, flexWrap: 'wrap', gap: 10 }}>
+          <div className="footer-bottom" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 24, flexWrap: 'wrap', gap: 10 }}>
             <span style={{ color: '#4b5563', fontSize: 12 }}>&copy; 2026 UsafiLink. All rights reserved.</span>
             <span style={{ color: '#4b5563', fontSize: 12 }}>Made with ❤️ in Nairobi, Kenya 🇰🇪</span>
           </div>
@@ -492,7 +492,7 @@ export default function Landing() {
       {/* ══════════════ STICKY BOOK BAR ══════════════ */}
       {selected && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40, padding: '14px 24px', background: '#fff', borderTop: '3px solid #059669', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)', animation: 'slideUp 0.3s ease-out' }}>
-          <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <div className="sticky-book-inner" style={{ maxWidth: 720, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 44, height: 44, borderRadius: 14, background: '#d1fae5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{selV?.emoji}</div>
               <div>
@@ -500,7 +500,7 @@ export default function Landing() {
                 <div style={{ fontSize: 14, fontWeight: 900, color: '#111827' }}>{selV?.name} — {selV?.capacity}</div>
               </div>
             </div>
-            <div style={{ textAlign: 'right', display: window.innerWidth > 480 ? 'block' : 'none' }}>
+            <div className="sticky-book-price" style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 }}>From</div>
               <div style={{ fontSize: 16, fontWeight: 900, color: '#111827' }}>KES {selV?.price.toLocaleString()}</div>
             </div>
@@ -517,28 +517,62 @@ export default function Landing() {
 
       {/* Responsive + animation styles */}
       <style>{`
+        .landing-page,
+        .landing-page * {
+          box-sizing: border-box;
+        }
+        .landing-page {
+          width: 100%;
+          text-align: left;
+        }
+        .landing-page img {
+          display: block;
+          max-width: 100%;
+        }
+        .landing-page select {
+          min-width: 0;
+          max-width: 100%;
+        }
         @keyframes ping { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.2)} }
         @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
         @keyframes slideUp { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+        @media(max-width:1024px){
+          .vehicle-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+          .gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+        }
         @media(max-width:768px){
-          .hero-grid{grid-template-columns:1fr!important;}
-          .hero-right{display:none!important;}
-          .steps-grid{grid-template-columns:1fr 1fr!important;}
-          .vehicle-grid{grid-template-columns:1fr 1fr!important;}
-          .features-grid{grid-template-columns:1fr 1fr!important;}
+          .hero-section{min-height:100svh!important;align-items:center!important;}
+          .hero-content{padding:96px 18px 72px!important;}
+          .hero-copy{max-width:100%!important;}
+          .booking-card{max-width:none!important;width:100%!important;}
+          .trust-badges{gap:16px!important;flex-wrap:wrap!important;margin-top:28px!important;}
+          .steps-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+          .vehicle-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+          .features-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+          .gallery-grid{grid-template-columns:1fr!important;}
           .testimonials-grid{grid-template-columns:1fr!important;}
-          .stats-grid{grid-template-columns:1fr 1fr!important;}
+          .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
           .footer-grid{grid-template-columns:1fr!important;}
           .hidden-mobile{display:none!important;}
           .show-mobile{display:flex!important;}
-          h1{font-size:44px!important;}
-          h2{font-size:30px!important;}
+          .landing-page h1{font-size:44px!important;letter-spacing:0!important;}
+          .landing-page h2{font-size:30px!important;letter-spacing:0!important;}
+          .footer-bottom{justify-content:center!important;text-align:center!important;}
         }
         @media(max-width:480px){
+          .hero-content{padding-left:16px!important;padding-right:16px!important;}
+          .trust-badges{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important;}
           .steps-grid{grid-template-columns:1fr!important;}
           .vehicle-grid{grid-template-columns:1fr!important;}
           .features-grid{grid-template-columns:1fr!important;}
-          .stats-grid{grid-template-columns:1fr 1fr!important;}
+          .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:18px!important;}
+          .sticky-book-inner{align-items:stretch!important;gap:12px!important;}
+          .sticky-book-price{display:none!important;}
+          .sticky-book-inner > div:first-child{min-width:0!important;flex:1!important;}
+          .sticky-book-inner button{padding:12px 16px!important;}
+          .scroll-cue{display:none!important;}
+          .landing-page h1{font-size:40px!important;}
+          .landing-page h2{font-size:28px!important;}
         }
         .hidden-mobile{display:flex;}
         .show-mobile{display:none;}

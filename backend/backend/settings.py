@@ -4,6 +4,21 @@ from decouple import config
 from datetime import timedelta
 from django.core.management.utils import get_random_secret_key
 
+
+def config_bool(name, default=False):
+    """Read booleans from env while accepting production-style values."""
+    value = config(name, default=default)
+    if isinstance(value, bool):
+        return value
+
+    normalized = str(value).strip().lower()
+    if normalized in ('1', 'true', 'yes', 'on', 'debug', 'development', 'dev'):
+        return True
+    if normalized in ('0', 'false', 'no', 'off', 'release', 'production', 'prod'):
+        return False
+    return bool(default)
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -14,12 +29,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-usafilink-secret-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = config_bool('DEBUG', default=True)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,usafi.onrender.com,usafi-backend.onrender.com,usafilink-backend.onrender.com').split(',')
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in config(
+        'ALLOWED_HOSTS',
+        default=(
+            '185.220.204.247,127.0.0.1,localhost,'
+            '.trycloudflare.com,.loca.lt,'
+            'usafi.onrender.com,usafi-backend.onrender.com,usafilink-backend.onrender.com'
+        )
+    ).split(',')
+    if host.strip()
+]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://*.loca.lt",
+    "https://*.trycloudflare.com",
     "http://localhost:5173",
     "https://usafi-frontend.onrender.com",
     "https://usafi-backend.onrender.com",
@@ -46,6 +73,7 @@ INSTALLED_APPS = [
     'users',
     'users.admin_panel',
     'bookings',
+    'notifications',
     'payments',
     'tracking',
     'vehicles.apps.VehiclesConfig',
@@ -70,8 +98,6 @@ CORS_ALLOW_ALL_ORIGINS = True   # quick dev mode
 #     "http://10.0.2.2:8000",
 #     "http://localhost:8000",
 # ]
-
-
 ROOT_URLCONF = 'backend.urls'
 
 TEMPLATES = [
@@ -102,8 +128,9 @@ import dj_database_url
 # Render sets the 'RENDER' environment variable
 IS_PRODUCTION = os.environ.get('RENDER') or os.environ.get('RAILWAY_ENVIRONMENT')
 
-# Use OS environment directly for DATABASE_URL to avoid being misled by committed .env files
-DATABASE_URL = os.environ.get('DATABASE_URL')
+# Use the same DATABASE_URL source for Gunicorn and management commands.
+# systemd exports it from EnvironmentFile; local/manage.py reads it via python-decouple.
+DATABASE_URL = os.environ.get('DATABASE_URL') or config('DATABASE_URL', default='')
 
 if DATABASE_URL:
     DATABASES = {
@@ -207,6 +234,9 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
 }
 
 # CORS settings
@@ -269,8 +299,8 @@ if INTASEND_ENV != 'sandbox' and not INTASEND_PUBLIC_KEY:
     print("WARNING: Using LIVE Intasend API but INTASEND_PUBLIC_KEY is not set!")
 
 # Africa's Talking SMS Configuration
-AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='Usafilink')
-AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='atsk_59e148d226157f27a6c7141c6574ca332662dece7be9a7e4c47dcdc1e4eafb3764a5ff52')
+AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
+AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
 AFRICASTALKING_SENDER_ID = config('AFRICASTALKING_SENDER_ID', default=None)
 
 # Email Configuration

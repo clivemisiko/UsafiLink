@@ -65,7 +65,7 @@ const AdminUsers = () => {
       const data = await adminAPI.getUsers();
       setUsers(data);
     } catch (error) {
-      toast.error('Failed to fetch users');
+      toast.error(error.response?.data?.detail || error.response?.data?.error || 'Failed to fetch users');
       console.error(error);
     } finally {
       setLoading(false);
@@ -124,6 +124,17 @@ const AdminUsers = () => {
     }
   };
 
+  const handleApproveDriver = async (userId) => {
+    try {
+      await adminAPI.approveDriver(userId);
+      toast.success('Driver approved');
+      fetchUsers();
+      setShowActions(null);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to approve driver');
+    }
+  };
+
   const handleChangeRole = async (userId, currentRole) => {
     const roles = ['customer', 'driver', 'admin'];
     const newRole = prompt(`Change role from "${currentRole}" to:`, currentRole);
@@ -148,14 +159,14 @@ const AdminUsers = () => {
   };
 
   const handleDeleteUser = async (userId, userName) => {
-    if (window.confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) {
+    if (window.confirm(`Remove user "${userName}"? Their account will be deactivated and personal login details anonymized, while booking history is kept.`)) {
       try {
         await adminAPI.deleteUser(userId);
-        toast.success('User deleted successfully');
+        toast.success('User removed successfully');
         fetchUsers();
         setShowActions(null);
       } catch (error) {
-        toast.error('Failed to delete user');
+        toast.error(error.response?.data?.detail || 'Failed to remove user');
         console.error(error);
       }
     }
@@ -180,9 +191,33 @@ const AdminUsers = () => {
     }
   };
 
+  const getAccountStatus = (user) => {
+    if (!user.is_active) {
+      return {
+        label: 'Suspended',
+        dotClass: 'bg-red-500',
+        textClass: 'text-red-600',
+      };
+    }
+
+    if (user.role === 'driver' && !user.is_driver_approved) {
+      return {
+        label: 'Pending Approval',
+        dotClass: 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.45)]',
+        textClass: 'text-amber-600',
+      };
+    }
+
+    return {
+      label: 'Active',
+      dotClass: 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]',
+      textClass: 'text-green-600',
+    };
+  };
+
   const stats = {
     total: users.length,
-    active: users.filter(u => u.is_active).length,
+    active: users.filter(u => u.is_active && (u.role !== 'driver' || u.is_driver_approved)).length,
     drivers: users.filter(u => u.role === 'driver').length,
     customers: users.filter(u => u.role === 'customer').length,
   };
@@ -307,7 +342,9 @@ const AdminUsers = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredUsers.map((u) => (
+                {filteredUsers.map((u) => {
+                  const accountStatus = getAccountStatus(u);
+                  return (
                   <tr key={u.id} className="hover:bg-emerald-50/10 transition-colors group">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-4">
@@ -344,9 +381,9 @@ const AdminUsers = () => {
                     </td>
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${u.is_active ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`}></div>
-                        <span className={`text-[10px] font-black uppercase tracking-tighter ${u.is_active ? 'text-green-600' : 'text-red-600'}`}>
-                          {u.is_active ? 'Active' : 'Suspended'}
+                        <div className={`w-2 h-2 rounded-full ${accountStatus.dotClass}`}></div>
+                        <span className={`text-[10px] font-black uppercase tracking-tighter ${accountStatus.textClass}`}>
+                          {accountStatus.label}
                         </span>
                       </div>
                     </td>
@@ -379,6 +416,14 @@ const AdminUsers = () => {
                                   <UserX className="w-4 h-4" /> Suspend
                                 </button>
                               )}
+                              {u.role === 'driver' && !u.is_driver_approved && u.is_active && (
+                                <button
+                                  onClick={() => handleApproveDriver(u.id)}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
+                                >
+                                  <UserCheck className="w-4 h-4" /> Approve Driver
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleChangeRole(u.id, u.role)}
                                 className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 rounded-xl transition-all"
@@ -396,7 +441,7 @@ const AdminUsers = () => {
                                 onClick={() => handleDeleteUser(u.id, u.username)}
                                 className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition-all"
                               >
-                                <Trash2 className="w-4 h-4" /> Delete User
+                                <Trash2 className="w-4 h-4" /> Remove User
                               </button>
                             </div>
                           )}
@@ -404,7 +449,8 @@ const AdminUsers = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           ) : (

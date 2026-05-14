@@ -58,12 +58,26 @@ class Vehicle(models.Model):
         days_until_expiry = (self.insurance_expiry_date - timezone.now().date()).days
         return 0 <= days_until_expiry <= 7
     
+    def is_insurance_expired(self):
+        """Check if insurance has expired"""
+        if not self.insurance_expiry_date:
+            return False
+        days_until_expiry = (self.insurance_expiry_date - timezone.now().date()).days
+        return days_until_expiry < 0
+    
     def is_registration_expiring_soon(self):
         """Check if registration expires within 7 days"""
         if not self.registration_expiry_date:
             return False
         days_until_expiry = (self.registration_expiry_date - timezone.now().date()).days
         return 0 <= days_until_expiry <= 7
+    
+    def is_registration_expired(self):
+        """Check if registration has expired"""
+        if not self.registration_expiry_date:
+            return False
+        days_until_expiry = (self.registration_expiry_date - timezone.now().date()).days
+        return days_until_expiry < 0
     
     def __str__(self):
         driver_name = self.driver.get_full_name() if self.driver else "Unassigned"

@@ -14,6 +14,8 @@ class VehicleSerializer(serializers.ModelSerializer):
     )
     insurance_expiring_soon = serializers.SerializerMethodField()
     registration_expiring_soon = serializers.SerializerMethodField()
+    insurance_expired = serializers.SerializerMethodField()
+    registration_expired = serializers.SerializerMethodField()
 
     class Meta:
         model = Vehicle
@@ -23,15 +25,22 @@ class VehicleSerializer(serializers.ModelSerializer):
             'driver', 'driver_id', 'driver_details', 'created_at',
             'insurance_expiry_date', 'registration_expiry_date',
             'service_status', 'last_service_date', 'next_service_date',
-            'service_notes', 'insurance_expiring_soon', 'registration_expiring_soon'
+            'service_notes', 'insurance_expiring_soon', 'registration_expiring_soon',
+            'insurance_expired', 'registration_expired'
         ]
-        read_only_fields = ['created_at', 'insurance_expiring_soon', 'registration_expiring_soon']
+        read_only_fields = ['created_at', 'insurance_expiring_soon', 'registration_expiring_soon', 'insurance_expired', 'registration_expired']
     
     def get_insurance_expiring_soon(self, obj):
         return obj.is_insurance_expiring_soon()
     
     def get_registration_expiring_soon(self, obj):
         return obj.is_registration_expiring_soon()
+    
+    def get_insurance_expired(self, obj):
+        return obj.is_insurance_expired()
+    
+    def get_registration_expired(self, obj):
+        return obj.is_registration_expired()
 
 
 class VehicleComplaintSerializer(serializers.ModelSerializer):

@@ -48,11 +48,26 @@ const Login = () => {
   const navigate = useNavigate();
 
   const handleSuccessfulLogin = (response) => {
-    let userRole = 'user';
-    if (response.user?.role) userRole = response.user.role;
+    let userRole = 'customer';
+    if (response.user?.is_superuser || response.user?.is_staff) userRole = 'admin';
+    else if (response.user?.role) userRole = response.user.role;
     else if (response.role) userRole = response.role;
     else if (response.user_role) userRole = response.user_role;
+
+    if (userRole === 'driver' && response.user?.is_driver_approved === false) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user_role');
+      toast.error('Your driver account is pending admin approval. You can access the driver dashboard after approval.', { duration: 6000 });
+      return;
+    }
+
+    localStorage.removeItem('license_expiry_date');
     localStorage.setItem('user_role', userRole);
+    if (response.user?.driver_license_expiry_date) {
+      localStorage.setItem('license_expiry_date', response.user.driver_license_expiry_date);
+    }
+
     toast.success('Login successful!', { duration: 2000 });
     if (userRole === 'admin') navigate('/admin');
     else if (userRole === 'driver') navigate('/driver');

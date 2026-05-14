@@ -5,6 +5,10 @@ const getBaseUrl = () => {
   const rawUrl = import.meta.env.VITE_API_URL?.trim() || import.meta.env.VITE_API_BASE_URL?.trim();
 
   if (rawUrl) {
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && rawUrl.startsWith('http://')) {
+      return '/api/';
+    }
+
     let url = rawUrl.replace(/\/+$/g, '');
     if (!url.endsWith('/api')) {
       url = `${url}/api`;
